@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import type { Venue } from "@/types/venue";
-import type { VenueSettings, CustomQuestion, MenuItem, ServiceItem, QuestionType } from "@/types/venue";
+import type { VenueSettings, CustomQuestion, MenuItem, ServiceItem, QuestionType, ReplyTone } from "@/types/venue";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -224,6 +224,68 @@ export function SettingsPanel({
                   save({ uiText: { ...settings.uiText, claimRewardLabel: e.target.value } })
                 }
                 className="max-w-md rounded-xl border-input"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Google review page URL</Label>
+              <Input
+                placeholder="e.g. https://search.google.com/local/writereview?placeid=ChIJ..."
+                value={settings.googleReviewUrl ?? ""}
+                onChange={(e) => save({ googleReviewUrl: e.target.value || undefined })}
+                className="max-w-md rounded-xl border-input"
+              />
+              <p className="text-xs text-muted-foreground">
+                Paste your Google review / writereview link. Used for the &quot;Post to Google&quot; button after feedback.
+              </p>
+            </div>
+            {saving && (
+              <p className="text-xs text-muted-foreground">Saving…</p>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* AI reply tone & instructions (Google + WhatsApp) */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.06 }}
+      >
+        <Card className="admin-card overflow-hidden border bg-card">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg font-semibold">AI reply style</CardTitle>
+            <CardDescription className="text-muted-foreground">
+              How AI should reply to Google reviews and WhatsApp (friendly, professional, offerable, etc.)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Reply tone</Label>
+              <select
+                value={settings.replyTone ?? "friendly"}
+                onChange={(e) =>
+                  save({ replyTone: (e.target.value || "friendly") as ReplyTone })
+                }
+                className="w-full max-w-md rounded-xl border border-input bg-background px-4 py-2.5 text-sm outline-none"
+              >
+                <option value="friendly">Friendly</option>
+                <option value="professional">Professional</option>
+                <option value="apologetic">Apologetic</option>
+                <option value="offerable">Offerable (mention offers)</option>
+                <option value="luxury">Luxury (hotels)</option>
+                <option value="casual">Casual (cafes)</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Custom instructions (optional)</Label>
+              <Textarea
+                placeholder="e.g. Always mention next visit discount. Keep under 2 sentences."
+                value={settings.replyInstructions ?? ""}
+                onChange={(e) =>
+                  save({ replyInstructions: e.target.value || undefined })
+                }
+                className="min-h-[80px] resize-none rounded-xl border-input max-w-md"
+                maxLength={500}
               />
             </div>
             {saving && (

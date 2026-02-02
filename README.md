@@ -16,6 +16,25 @@ npm run dev
 - **Tenant dashboard (demo):** [http://localhost:3001/admin?tenant=demo](http://localhost:3001/admin?tenant=demo)
 - **Platform admin (super admin):** [http://localhost:3001/superadmin?host=superadmin](http://localhost:3001/superadmin?host=superadmin)
 
+## Database setup (Supabase)
+
+If you see **"Could not find the table 'public.feedback_submissions' in the schema cache"** (PGRST205), your Supabase project doesn’t have the tables yet. Apply the migrations:
+
+**Option A – Supabase Dashboard (recommended)**
+
+1. Open [Supabase Dashboard](https://supabase.com/dashboard) → your project → **SQL Editor**.
+2. Run **Migration 1:** open `supabase/migrations/001_tenants_profiles_venues.sql`, copy its full contents, paste into a new query, and click **Run**. This creates `tenants`, `profiles`, `venues`, `venue_settings`, `feedback_submissions`, and RLS.
+3. Run **Migration 2:** open `supabase/migrations/002_feedback_review_outcome.sql`, copy its contents, paste into a new query, and click **Run**. This adds `generated_review_text` and `review_outcome` to `feedback_submissions`.
+
+**Option B – Supabase CLI**
+
+```bash
+npx supabase link --project-ref YOUR_PROJECT_REF   # if not linked
+npx supabase db push
+```
+
+After running the migrations, admin **Reviews** and **Recent feedback** (submissions) will work.
+
 ## Push to GitHub
 
 1. **Create a new repository** on GitHub (e.g. `guestloop` or `growth-system`). Do **not** initialize with a README (you already have one).
@@ -51,12 +70,13 @@ git push -u origin main
    - Emoji ratings: overall, cleanliness, service, food/room quality, value.
    - Optional: “Anything we should improve?” (voice-to-text later).
    - AI review preview → one-click redirect to Google.
+   - **Submission:** All feedback is saved to Supabase `feedback_submissions` (via `POST /api/feedback/submit`). Happy path (avg ≥ 4) stores `generated_review_text` and `review_outcome: google_redirect`; private feedback stores `review_outcome: private`. Google review link uses `placeid` when venue has `google_place_id` (writereview URL).
 
 ### Admin
 
 - **AI Performance Dashboard** — Aspect scores (color: green/orange/red).
 - **AI Insights** — Plain English (e.g. “Customers love food but complain about slow service at 7–9 PM”).
-- **Review management** — Auto-reply modes and reply styles (Professional, Warm, Apologetic, Luxury, Casual).
+- **Review management** — View feedback submissions and generated reviews; **Generate AI reply** using venue tone/instructions (Settings → AI reply style); copy reply to post on Google. Connect Google Business Profile API later for live reviews and one-click reply.
 - **Retention** — Phone + visit context for personalized offers and apology coupons.
 
 ## Multi-tenant and subdomains
@@ -76,7 +96,7 @@ The app is **multi-tenant**: each hotel or restaurant is a **tenant** with its o
 
 **Sign up:** Hotels and restaurants sign up at `/signup` with: organization name (hotel/restaurant name), first name, last name, email, password, mobile (with country selector), business type (restaurant/hotel/both), and business country. `POST /api/app/signup` accepts these fields and creates a tenant (in-memory or Supabase when configured). After signup they can sign in at `/signin` with **Google** or **email/password**. Each organization has separate feedback, menu, and settings (per-tenant isolation).
 
-**Supabase (optional):** For persistent auth and DB, set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Run `supabase/migrations/001_tenants_profiles_venues.sql` in the Supabase SQL Editor to create `tenants`, `profiles`, `venues`, `venue_settings`, `feedback_submissions` with RLS so each org sees only its data. Enable Google OAuth in Supabase Auth providers and add the redirect URL `/auth/callback`. Sign-in then uses Supabase Auth; session is refreshed in middleware.
+**Supabase (optional):** For persistent auth and DB, set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (and `SUPABASE_SERVICE_ROLE_KEY` for signup and feedback submit). Run `supabase/migrations/001_tenants_profiles_venues.sql` and `002_feedback_review_outcome.sql` in the Supabase SQL Editor to create tables and add `generated_review_text`, `review_outcome` to `feedback_submissions`. Enable Google OAuth in Supabase Auth and add redirect URL `/auth/callback`. Sign-in uses Supabase Auth; session is refreshed in middleware.
 
 ## Tech stack
 

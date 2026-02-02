@@ -56,6 +56,9 @@ export interface ServiceItem {
   order: number;
 }
 
+/** Tone for AI-generated replies (Google reviews, WhatsApp). */
+export type ReplyTone = "friendly" | "professional" | "apologetic" | "offerable" | "luxury" | "casual";
+
 export interface VenueSettings {
   venueId: string;
   showMenu: boolean;
@@ -64,6 +67,12 @@ export interface VenueSettings {
   customQuestions: CustomQuestion[];
   menuItems: MenuItem[];
   serviceItems: ServiceItem[];
+  /** AI reply: tone (friendly, professional, etc.). Used for Google review & WhatsApp auto-reply. */
+  replyTone?: ReplyTone;
+  /** AI reply: custom instructions (e.g. "Always mention next visit discount"). */
+  replyInstructions?: string;
+  /** Optional: direct URL to your Google review / writereview page. Used for "Post to Google" link. */
+  googleReviewUrl?: string;
 }
 
 export interface FeedbackScores {

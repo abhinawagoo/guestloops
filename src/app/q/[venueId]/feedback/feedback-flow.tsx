@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { EmojiRating } from "@/components/feedback/emoji-rating";
 import { YesNoChoice } from "@/components/feedback/yes-no-choice";
 import { TextQuestion } from "@/components/feedback/text-question";
+import { ThankYouLottie } from "@/components/feedback/thank-you-lottie";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 /** Ideal flow: emotion → aspect → aspect → positive text → yes/no → optional text → image → review */
@@ -82,18 +83,22 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
     ? (step === totalSteps - 1 ? "Last question!" : step === totalSteps - 2 ? "Almost there 🎉" : `Question ${step + 1} of ${totalSteps}`)
     : "Add a photo (optional)";
 
+  const advanceStep = useCallback(() => {
+    setStep((s) => Math.min(s + 1, totalSteps));
+  }, [totalSteps]);
+
   const handleEmoji = useCallback((value: number) => {
     if (!currentStepConfig || currentStepConfig.type !== "emoji") return;
     const scoreKey = getScoreKey(currentStepConfig.key as string, venue.type);
     setScores((s) => ({ ...s, [scoreKey]: value }));
-    if (step < totalSteps - 1) setStep((s) => s + 1);
-  }, [currentStepConfig, step, totalSteps, venue.type]);
+    advanceStep();
+  }, [currentStepConfig, venue.type, advanceStep]);
 
   const handleYesNo = useCallback((value: boolean) => {
     if (!currentStepConfig || currentStepConfig.type !== "yesNo") return;
     setYesNoAnswers((a) => ({ ...a, [currentStepConfig.key]: value }));
-    if (step < totalSteps - 1) setStep((s) => s + 1);
-  }, [currentStepConfig, step, totalSteps]);
+    advanceStep();
+  }, [currentStepConfig, advanceStep]);
 
   const handleText = useCallback((value: string) => {
     if (!currentStepConfig) return;
@@ -101,8 +106,8 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
   }, [currentStepConfig]);
 
   const handleNextFromText = useCallback(() => {
-    if (step < totalSteps - 1) setStep((s) => s + 1);
-  }, [step, totalSteps]);
+    advanceStep();
+  }, [advanceStep]);
 
 
   const sendWhatsAppIfOptedIn = useCallback((mobileNum: string) => {
@@ -118,6 +123,35 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
     }).catch(() => {});
   }, [venue.id, venue.name]);
 
+  const saveSubmission = useCallback(
+    async (payload: {
+      generatedReviewText?: string;
+      reviewOutcome: "google_redirect" | "private";
+    }) => {
+      const optionalText = textAnswers["optionalText"] ?? "";
+      const mobile = getStoredMobile(venue.id);
+      const avg = averageAspectScore(scores);
+      await fetch("/api/feedback/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          venueId: venue.id,
+          tenantId: venue.tenantId,
+          mobile: mobile || undefined,
+          scores: { ...scores, overall: scores.overall ?? Math.round(avg) },
+          textAnswers: Object.keys(textAnswers).length ? textAnswers : undefined,
+          yesNoAnswers: Object.keys(yesNoAnswers).length ? yesNoAnswers : undefined,
+          optionalText: optionalText || undefined,
+          imageUrls: imageUrls.length ? imageUrls : undefined,
+          sessionId: typeof window !== "undefined" ? crypto.randomUUID?.() ?? undefined : undefined,
+          generatedReviewText: payload.generatedReviewText,
+          reviewOutcome: payload.reviewOutcome,
+        }),
+      }).catch(() => {});
+    },
+    [scores, textAnswers, yesNoAnswers, imageUrls, venue]
+  );
+
   const submitForReview = useCallback(async () => {
     const avg = averageAspectScore(scores);
     const optionalText = textAnswers["optionalText"] ?? "";
@@ -126,6 +160,7 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
     if (avg < 3) {
       setOutcome("private");
       setDone(false);
+      await saveSubmission({ reviewOutcome: "private" });
       if (mobile) sendWhatsAppIfOptedIn(mobile);
       return;
     }
@@ -151,11 +186,22 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
           }),
         });
         const data = await res.json();
-        if (data.review) setReview(data.review);
-        else setReview(mockReview(scores, textAnswers, yesNoAnswers, venue));
+        const generatedReview = data.review
+          ? data.review
+          : mockReview(scores, textAnswers, yesNoAnswers, venue);
+        setReview(generatedReview);
+        await saveSubmission({
+          reviewOutcome: "google_redirect",
+          generatedReviewText: generatedReview.text,
+        });
         if (mobile) sendWhatsAppIfOptedIn(mobile);
       } catch {
-        setReview(mockReview(scores, textAnswers, yesNoAnswers, venue));
+        const generatedReview = mockReview(scores, textAnswers, yesNoAnswers, venue);
+        setReview(generatedReview);
+        await saveSubmission({
+          reviewOutcome: "google_redirect",
+          generatedReviewText: generatedReview.text,
+        });
         if (mobile) sendWhatsAppIfOptedIn(mobile);
       } finally {
         setIsGenerating(false);
@@ -164,8 +210,10 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
     }
 
     setOutcome("private");
+    setDone(false);
+    await saveSubmission({ reviewOutcome: "private" });
     if (mobile) sendWhatsAppIfOptedIn(mobile);
-  }, [scores, textAnswers, yesNoAnswers, imageUrls, venue, sendWhatsAppIfOptedIn]);
+  }, [scores, textAnswers, yesNoAnswers, imageUrls, venue, sendWhatsAppIfOptedIn, saveSubmission]);
 
   const handleContinueFromImage = useCallback(() => {
     submitForReview();
@@ -231,7 +279,7 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
                       maxLength={500}
                     />
                     <Button onClick={handleNextFromText} size="lg" className="mt-2">
-                      Continue →
+                      {step === totalSteps - 1 ? "Continue to photo (optional) →" : "Continue →"}
                     </Button>
                   </>
                 )}
@@ -312,7 +360,17 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
                     {review.text}
                   </div>
                   <Button asChild size="lg" className="w-full">
-                    <a href={`https://www.google.com/search?q=${encodeURIComponent(venue.name)}+review`} target="_blank" rel="noopener noreferrer">
+                    <a
+                      href={
+                        settings.googleReviewUrl?.trim()
+                          ? settings.googleReviewUrl.trim()
+                          : venue.googlePlaceId
+                            ? `https://search.google.com/local/writereview?placeid=${encodeURIComponent(venue.googlePlaceId)}`
+                            : `https://www.google.com/search?q=${encodeURIComponent(venue.name)}+review`
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
                       Post to Google →
                     </a>
                   </Button>
@@ -326,13 +384,15 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
 
       {done && (
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3 }}
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
           className="mt-8 rounded-2xl border border-accent/30 bg-accent/10 p-6 text-center shadow-sm"
         >
-          <p className="text-lg font-semibold text-foreground">{thanksTitle}</p>
-          <p className="text-muted-foreground mt-1">{rewardCta ?? "Show this screen for your reward at the counter."}</p>
+          <ThankYouLottie className="mb-4" />
+          <p className="text-lg font-semibold text-foreground">You&apos;re all set!</p>
+          <p className="text-lg font-semibold text-foreground mt-1">{thanksTitle}</p>
+          <p className="text-muted-foreground mt-2">{rewardCta ?? "Show this screen for your reward at the counter."}</p>
         </motion.div>
       )}
     </div>

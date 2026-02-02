@@ -1,24 +1,28 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import type { Venue } from "@/types/venue";
+import { getTenantFromHeaders } from "@/lib/tenant";
+import { getVenuesByTenantIdAsync } from "@/lib/tenant-resolver";
+import { createClient } from "@/lib/supabase/server";
+import { ReviewsPanel } from "./reviews-panel";
 
-export default function AdminReviewsPage() {
+export default async function AdminReviewsPage() {
+  const headersList = await headers();
+  const ctx = getTenantFromHeaders(headersList);
+  if (ctx.hostType !== "tenant" || !ctx.tenantId) redirect("/");
+
+  const supabase = await createClient();
+  const venueOptions: Venue[] = await getVenuesByTenantIdAsync(ctx.tenantId, supabase ?? undefined);
+
   return (
     <div className="space-y-10">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Review management</h1>
-        <p className="text-muted-foreground text-sm mt-1.5 max-w-xl">
-          Auto-reply modes and reply styles (Professional, Warm, Apologetic,
-          Luxury, Casual)
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Reviews</h1>
+        <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">
+          View feedback submissions, generate AI replies with your chosen tone, and copy to post on Google.
         </p>
       </div>
-      <Card className="admin-card border bg-card">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg font-semibold">Google Business Profile</CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          Connect Google Business Profile API to see incoming reviews and use
-          AI auto-reply. High ROI: replying to reviews increases Google trust.
-        </CardContent>
-      </Card>
+      <ReviewsPanel venueOptions={venueOptions} />
     </div>
   );
 }
