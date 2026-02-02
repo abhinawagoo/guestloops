@@ -16,6 +16,29 @@ npm run dev
 - **Tenant dashboard (demo):** [http://localhost:3001/admin?tenant=demo](http://localhost:3001/admin?tenant=demo)
 - **Platform admin (super admin):** [http://localhost:3001/superadmin?host=superadmin](http://localhost:3001/superadmin?host=superadmin)
 
+## Push to GitHub
+
+1. **Create a new repository** on GitHub (e.g. `guestloop` or `growth-system`). Do **not** initialize with a README (you already have one).
+
+2. **Add the remote and push** (replace `YOUR_USERNAME` and `YOUR_REPO` with your GitHub username and repo name):
+
+```bash
+cd growth-system   # if you're in the parent folder
+git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
+git branch -M main
+git push -u origin main
+```
+
+Or with SSH:
+
+```bash
+git remote add origin git@github.com:YOUR_USERNAME/YOUR_REPO.git
+git branch -M main
+git push -u origin main
+```
+
+`.env*` is in `.gitignore`, so your secrets (Supabase, OpenAI) are not pushed. Set them in your deployment (Vercel, etc.) or in GitHub Actions if needed.
+
 ## Product structure
 
 ### Customer (QR flow)
