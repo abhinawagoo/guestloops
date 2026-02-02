@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# cursor (optional: remove this line if you want to commit .cursor/rules)
+.cursor/

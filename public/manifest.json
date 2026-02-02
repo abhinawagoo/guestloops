@@ -1,0 +1,12 @@
+{
+  "name": "Google Review Growth for Hospitality",
+  "short_name": "Review Growth",
+  "description": "Scan QR → quick feedback → AI turns it into a Google review. Mobile-first.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0a0a0a",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": []
+}
