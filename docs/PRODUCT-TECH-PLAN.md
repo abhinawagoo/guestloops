@@ -1,4 +1,4 @@
-# GuestLoop — Product & Tech Plan (Animations, WhatsApp, AI Agents, Question Library)
+# GuestLoops — Product & Tech Plan (Animations, WhatsApp, AI Agents, Question Library)
 
 This document plans the features you asked for: **animations (LottieFiles)**, **feedback completion**, **central question library**, **WhatsApp campaigns & auto-reply**, **AI reply agents with tone instructions**, and **personalized marketing**. It also states what we’ll use and how we’ll implement.
 

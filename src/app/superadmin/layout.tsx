@@ -38,6 +38,12 @@ export default async function SuperAdminLayout({
             >
               Tenants
             </Link>
+            <Link
+              href="/superadmin/payments"
+              className="rounded-lg px-3.5 py-2 hover:bg-slate-800 hover:text-white transition-colors"
+            >
+              Payments
+            </Link>
             <span className="ml-2 rounded bg-amber-500/20 px-2 py-0.5 text-xs text-amber-400">
               Super Admin
             </span>

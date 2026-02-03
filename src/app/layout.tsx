@@ -9,15 +9,15 @@ const inter = Inter({
 });
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://guestloops.com";
-const title = "GuestLoop — Turn guest feedback into 5-star reviews";
+const title = "GuestLoops — Turn guest feedback into 5-star reviews";
 const description =
-  "Guests scan a QR, give quick feedback, and GuestLoop turns it into SEO-friendly Google reviews and WhatsApp offers. Get more reviews and repeat visits. For hotels and restaurants.";
+  "Guests scan a QR, give quick feedback, and GuestLoops turns it into SEO-friendly Google reviews and WhatsApp offers. Get more reviews and repeat visits. For hotels and restaurants.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
   title: {
     default: title,
-    template: "%s | GuestLoop",
+    template: "%s | GuestLoops",
   },
   description,
   keywords: [
@@ -28,15 +28,15 @@ export const metadata: Metadata = {
     "restaurant reviews",
     "QR feedback",
     "review generation",
-    "GuestLoop",
+    "GuestLoops",
   ],
-  authors: [{ name: "GuestLoop", url: appUrl }],
-  creator: "GuestLoop",
+  authors: [{ name: "GuestLoops", url: appUrl }],
+  creator: "GuestLoops",
   openGraph: {
     type: "website",
     locale: "en_US",
     url: appUrl,
-    siteName: "GuestLoop",
+    siteName: "GuestLoops",
     title,
     description,
   },
@@ -60,7 +60,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "GuestLoop",
+    title: "GuestLoops",
   },
 };
 
@@ -77,7 +77,7 @@ const jsonLd = {
     {
       "@type": "Organization",
       "@id": `${appUrl}/#organization`,
-      name: "GuestLoop",
+      name: "GuestLoops",
       url: appUrl,
       description,
       sameAs: [],
@@ -86,7 +86,7 @@ const jsonLd = {
       "@type": "WebSite",
       "@id": `${appUrl}/#website`,
       url: appUrl,
-      name: "GuestLoop",
+      name: "GuestLoops",
       description,
       publisher: { "@id": `${appUrl}/#organization` },
       inLanguage: "en-US",

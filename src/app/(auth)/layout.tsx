@@ -13,7 +13,7 @@ export default function AuthLayout({
             href="/"
             className="font-semibold text-foreground tracking-tight hover:text-primary transition-colors"
           >
-            Google Review Growth
+            GuestLoops
           </Link>
           <Link
             href="/"

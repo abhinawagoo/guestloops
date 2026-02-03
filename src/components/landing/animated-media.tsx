@@ -4,7 +4,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 
 type AnimatedMediaProps = {
-  /** Image src (path or URL). Use /hero-guestloop.png or external URL */
+  /** Image src (path or URL). Use /hero-guestloops.png or external URL */
   src?: string;
   alt: string;
   /** Optional video URL for embed (e.g. YouTube embed) */
@@ -83,7 +83,7 @@ export function AnimatedMedia({
             </svg>
           </motion.div>
           <p className="absolute bottom-4 left-0 right-0 z-10 text-center text-sm font-medium text-[var(--muted-foreground)]">
-            See GuestLoop in action
+            See GuestLoops in action
           </p>
         </div>
       )}
@@ -91,7 +91,7 @@ export function AnimatedMedia({
         <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[var(--primary)]/5 to-[var(--accent)]/5">
           <div className="text-center text-[var(--muted-foreground)]">
             <p className="text-sm">Add image or video here</p>
-            <p className="mt-1 text-xs">e.g. /hero-guestloop.png</p>
+            <p className="mt-1 text-xs">e.g. /hero-guestloops.png</p>
           </div>
         </div>
       )}

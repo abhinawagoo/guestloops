@@ -13,9 +13,13 @@ export default async function ServicesPage({
   const venue = getVenueWithSettings(venueId);
   if (!venue) notFound();
 
-  const items = venue.settings.serviceItems
-    .slice()
-    .sort((a, b) => a.order - b.order);
+  const categories =
+    venue.settings.serviceCategories
+      ?.filter((c) => c.enabled)
+      .sort((a, b) => a.order - b.order) ?? [];
+  const legacyItems = (venue.settings.serviceItems ?? []).slice().sort((a, b) => a.order - b.order);
+  const hasCategories = categories.length > 0;
+  const rewardCta = venue.settings.uiText.rewardCta ?? venue.rewardCta;
 
   return (
     <main className="min-h-screen bg-background p-6 pb-24">
@@ -27,23 +31,62 @@ export default async function ServicesPage({
           ← Back
         </Link>
         <h1 className="text-2xl font-bold mb-6">Services</h1>
-        {items.length === 0 ? (
-          <div className="space-y-4">
-            {["Spa", "Room Service", "Breakfast", "Laundry", "Concierge"].map((s) => (
-              <Card key={s}>
-                <CardHeader>
-                  <CardTitle className="text-base">{s}</CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm text-muted-foreground">
-                  [Service details — customize in Settings]
-                </CardContent>
-              </Card>
+
+        {hasCategories ? (
+          <div className="space-y-8">
+            {categories.map((cat) => (
+              <section key={cat.id}>
+                <div className="flex items-center gap-3 mb-4">
+                  {cat.imageUrl && (
+                    <img
+                      src={cat.imageUrl}
+                      alt=""
+                      className="h-12 w-12 rounded-xl object-cover shrink-0"
+                    />
+                  )}
+                  <div>
+                    <h2 className="text-lg font-semibold">{cat.name}</h2>
+                    {cat.description && (
+                      <p className="text-sm text-muted-foreground">{cat.description}</p>
+                    )}
+                  </div>
+                </div>
+                <ul className="space-y-3">
+                  {cat.items
+                    .filter((i) => i.enabled)
+                    .sort((a, b) => a.order - b.order)
+                    .map((item) => (
+                      <Card key={item.id} className="rounded-2xl border border-border overflow-hidden">
+                        <div className="flex gap-4 p-4">
+                          {item.imageUrl && (
+                            <img
+                              src={item.imageUrl}
+                              alt=""
+                              className="h-24 w-24 rounded-xl object-cover shrink-0"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <CardTitle className="text-base">{item.name}</CardTitle>
+                            {item.description && (
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {item.description}
+                              </p>
+                            )}
+                            {item.price != null && item.price !== "" && (
+                              <p className="text-sm font-medium mt-2">{item.price}</p>
+                            )}
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                </ul>
+              </section>
             ))}
           </div>
-        ) : (
+        ) : legacyItems.length > 0 ? (
           <div className="space-y-4">
-            {items.map((item) => (
-              <Card key={item.id}>
+            {legacyItems.map((item) => (
+              <Card key={item.id} className="rounded-2xl border border-border">
                 <CardHeader>
                   <CardTitle className="text-base">{item.name}</CardTitle>
                 </CardHeader>
@@ -55,11 +98,25 @@ export default async function ServicesPage({
               </Card>
             ))}
           </div>
+        ) : (
+          <div className="space-y-4">
+            {["Spa", "Room Service", "Breakfast", "Laundry", "Concierge"].map((s) => (
+              <Card key={s} className="rounded-2xl border border-border">
+                <CardHeader>
+                  <CardTitle className="text-base">{s}</CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm text-muted-foreground">
+                  [Service details — customize in Admin → Settings → Services]
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         )}
+
         <div className="mt-8">
-          <Button asChild variant="outline" className="w-full">
+          <Button asChild variant="outline" className="w-full rounded-xl" size="lg">
             <Link href={`/q/${venueId}/feedback`}>
-              {venue.settings.uiText.rewardCta ?? "Give feedback & win a reward 🎁"}
+              {rewardCta ?? "Give feedback & win a reward 🎁"}
             </Link>
           </Button>
         </div>

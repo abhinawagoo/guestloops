@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { getDefaultQuestions } from "@/data/venue-settings";
-import type { CustomQuestion, QuestionType } from "@/types/venue";
+import type { CustomQuestion, QuestionType, RatingStyle } from "@/types/venue";
 
 const openai = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
@@ -21,7 +21,7 @@ export async function POST(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  let body: { reviewHistoryText?: string; venueType?: string; customerContext?: string };
+  let body: { reviewHistoryText?: string; venueType?: string; customerContext?: string; defaultRatingStyle?: RatingStyle };
   try {
     body = await request.json();
   } catch {
@@ -31,11 +31,16 @@ export async function POST(
   const reviewHistoryText = body.reviewHistoryText?.trim() || "";
   const venueType = body.venueType || "restaurant";
   const customerContext = body.customerContext?.trim() || "";
+  const defaultRatingStyle: RatingStyle = body.defaultRatingStyle === "emoji" ? "emoji" : "star";
 
   if (!openai) {
     const defaults = getDefaultQuestions();
     return NextResponse.json({
-      questions: defaults.map((q, i) => ({ ...q, order: i })),
+      questions: defaults.map((q, i) => ({
+        ...q,
+        order: i,
+        ratingStyle: q.type === "emoji" ? defaultRatingStyle : undefined,
+      })),
       message: "OpenAI not configured; using default questions.",
     });
   }
@@ -63,6 +68,7 @@ export async function POST(
       type: validType(q.type),
       key: q.key || "overall",
       order: i,
+      ratingStyle: validType(q.type) === "emoji" ? defaultRatingStyle : undefined,
       placeholder: q.type === "text" ? "Your answer..." : undefined,
       yesNoLabels: q.type === "yesNo" ? ["Yes", "No"] : undefined,
     }));
@@ -71,7 +77,11 @@ export async function POST(
     console.error(e);
     const defaults = getDefaultQuestions();
     return NextResponse.json({
-      questions: defaults.map((q, i) => ({ ...q, order: i })),
+      questions: defaults.map((q, i) => ({
+        ...q,
+        order: i,
+        ratingStyle: q.type === "emoji" ? defaultRatingStyle : undefined,
+      })),
       error: "AI suggestion failed; using defaults.",
     });
   }

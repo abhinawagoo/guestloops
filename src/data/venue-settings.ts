@@ -27,7 +27,9 @@ function defaultSettings(venueId: string): VenueSettings {
     },
     customQuestions: [],
     menuItems: [],
+    menuCategories: [],
     serviceItems: [],
+    serviceCategories: [],
   };
 }
 

@@ -68,7 +68,7 @@ Use **three separate Supabase projects** so production data stays isolated and y
 
 **Setup per environment:**
 
-1. **Create three projects** in [Supabase Dashboard](https://supabase.com/dashboard) (e.g. `guestloop-prod`, `guestloop-local`, `guestloop-test`).
+1. **Create three projects** in [Supabase Dashboard](https://supabase.com/dashboard) (e.g. `guestloops-prod`, `guestloops-local`, `guestloops-test`).
 2. **Run migrations in each project:** SQL Editor → run `001_tenants_profiles_venues.sql`, then `002_feedback_review_outcome.sql` (see [Database setup](#database-setup-supabase) below).
 3. **Wire env vars:**
    - **Local:** `cp .env.example .env.local` and paste the **Local** Supabase URL + anon key + service role key.
@@ -111,7 +111,7 @@ After running both migrations, **Signup**, **Reviews**, and **Recent feedback** 
 
 ## Push to GitHub
 
-1. **Create a new repository** on GitHub (e.g. `guestloop` or `growth-system`). Do **not** initialize with a README (you already have one).
+1. **Create a new repository** on GitHub (e.g. `guestloops` or `growth-system`). Do **not** initialize with a README (you already have one).
 
 2. **Add the remote and push** (replace `YOUR_USERNAME` and `YOUR_REPO` with your GitHub username and repo name):
 

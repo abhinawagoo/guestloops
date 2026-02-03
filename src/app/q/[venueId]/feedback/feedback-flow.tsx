@@ -260,6 +260,7 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
                     value={currentScore}
                     onChange={handleEmoji}
                     label=""
+                    variant={currentStepConfig.ratingStyle ?? settings.defaultRatingStyle ?? "star"}
                   />
                 )}
                 {currentStepConfig.type === "yesNo" && (

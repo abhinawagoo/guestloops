@@ -96,8 +96,8 @@ export function SignupForm() {
         // Brief delay so session cookie is persisted before full-page redirect
         await new Promise((r) => setTimeout(r, 200));
       }
-      // Full-page redirect so session cookie is sent on next request
-      window.location.href = `/admin?tenant=${slug}`;
+      // Redirect to onboarding so owner can add Google Business review link
+      window.location.href = `/admin/onboarding?tenant=${slug}`;
     } finally {
       setLoading(false);
     }

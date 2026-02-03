@@ -22,7 +22,7 @@ export default function robots(): MetadataRoute.Robots {
           "/superadmin/",
         ],
       },
-      // AI / LLM crawlers: allow so GuestLoop can be discovered in AI search and citations
+      // AI / LLM crawlers: allow so GuestLoops can be discovered in AI search and citations
       { userAgent: "GPTBot", allow: "/", disallow: ["/admin", "/admin/", "/api/", "/auth/", "/superadmin", "/superadmin/"] },
       { userAgent: "ChatGPT-User", allow: "/", disallow: ["/admin", "/admin/", "/api/", "/auth/", "/superadmin", "/superadmin/"] },
       { userAgent: "Google-Extended", allow: "/", disallow: ["/admin", "/admin/", "/api/", "/auth/", "/superadmin", "/superadmin/"] },

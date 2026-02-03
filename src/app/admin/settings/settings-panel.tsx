@@ -3,7 +3,11 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import type { Venue } from "@/types/venue";
-import type { VenueSettings, CustomQuestion, MenuItem, ServiceItem, QuestionType, ReplyTone } from "@/types/venue";
+import type { VenueSettings, CustomQuestion, MenuItem, ServiceItem, MenuCategory, ServiceCategory, QuestionType, ReplyTone, RatingStyle } from "@/types/venue";
+import type { PlanSlug } from "@/types/tenant";
+import { PLANS } from "@/types/tenant";
+import { MenuManager } from "@/components/admin/menu-manager";
+import { ServicesManager } from "@/components/admin/services-manager";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,16 +18,25 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 const QUESTION_TYPES: { value: QuestionType; label: string }[] = [
-  { value: "emoji", label: "Emoji (1–5)" },
+  { value: "emoji", label: "Rating (1–5)" },
   { value: "yesNo", label: "Yes / No" },
   { value: "text", label: "Text" },
 ];
+const RATING_STYLES: { value: RatingStyle; label: string }[] = [
+  { value: "star", label: "Stars" },
+  { value: "emoji", label: "Sentiment icons" },
+];
 const SCORE_KEYS = ["overall", "cleanliness", "service", "foodQuality", "roomQuality", "value", "optionalText"];
+
+const GOOGLE_REVIEW_LINK = "https://support.google.com/business/answer/2622994";
+const GOOGLE_BUSINESS_LINK = "https://business.google.com/";
 
 export function SettingsPanel({
   venueOptions,
+  currentPlan = "free",
 }: {
   venueOptions: Venue[];
+  currentPlan?: PlanSlug;
 }) {
   const venues = venueOptions;
   const [venueId, setVenueId] = useState(venues[0]?.id ?? "");
@@ -35,6 +48,7 @@ export function SettingsPanel({
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
   const [addingQuestion, setAddingQuestion] = useState(false);
   const [newQuestionType, setNewQuestionType] = useState<QuestionType>("emoji");
+  const [newQuestionRatingStyle, setNewQuestionRatingStyle] = useState<RatingStyle>("star");
   const [newQuestionTitle, setNewQuestionTitle] = useState("");
   const [newQuestionKey, setNewQuestionKey] = useState("overall");
 
@@ -73,6 +87,7 @@ export function SettingsPanel({
           reviewHistoryText: reviewHistory,
           venueType: venues.find((v) => v.id === venueId)?.type ?? "restaurant",
           customerContext: customerContext || undefined,
+          defaultRatingStyle: settings.defaultRatingStyle ?? "star",
         }),
       });
       const data = await res.json();
@@ -168,6 +183,40 @@ export function SettingsPanel({
         </Card>
       </motion.div>
 
+      {/* Integrations: Google Business Profile */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.03 }}
+      >
+        <Card className="admin-card overflow-hidden border bg-card">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg font-semibold">Google Business Profile</CardTitle>
+            <CardDescription className="text-muted-foreground">
+              Add your review page link so guests can submit reviews from the feedback flow.{" "}
+              <a href={GOOGLE_BUSINESS_LINK} target="_blank" rel="noopener noreferrer" className="text-primary underline hover:no-underline">Set up your profile</a>
+              {" · "}
+              <a href={GOOGLE_REVIEW_LINK} target="_blank" rel="noopener noreferrer" className="text-primary underline hover:no-underline">Get your review link</a>
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Google review page URL</Label>
+              <Input
+                placeholder="e.g. https://search.google.com/local/writereview?placeid=ChIJ..."
+                value={settings.googleReviewUrl ?? ""}
+                onChange={(e) => save({ googleReviewUrl: e.target.value || undefined })}
+                className="max-w-md rounded-xl border-input font-mono text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                Used for the “Post to Google” button after feedback.
+              </p>
+            </div>
+            {saving && <p className="text-xs text-muted-foreground">Saving…</p>}
+          </CardContent>
+        </Card>
+      </motion.div>
+
       {/* UI text */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
@@ -225,18 +274,6 @@ export function SettingsPanel({
                 }
                 className="max-w-md rounded-xl border-input"
               />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Google review page URL</Label>
-              <Input
-                placeholder="e.g. https://search.google.com/local/writereview?placeid=ChIJ..."
-                value={settings.googleReviewUrl ?? ""}
-                onChange={(e) => save({ googleReviewUrl: e.target.value || undefined })}
-                className="max-w-md rounded-xl border-input"
-              />
-              <p className="text-xs text-muted-foreground">
-                Paste your Google review / writereview link. Used for the &quot;Post to Google&quot; button after feedback.
-              </p>
             </div>
             {saving && (
               <p className="text-xs text-muted-foreground">Saving…</p>
@@ -309,6 +346,19 @@ export function SettingsPanel({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-muted/20 p-3">
+              <Label className="text-sm font-medium">Default rating display</Label>
+              <span className="text-xs text-muted-foreground">For new and AI-generated rating questions</span>
+              <select
+                value={settings.defaultRatingStyle ?? "star"}
+                onChange={(e) => save({ defaultRatingStyle: (e.target.value as RatingStyle) })}
+                className="rounded-xl border border-input bg-background px-3 py-2 text-sm"
+              >
+                {RATING_STYLES.map((s) => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
+            </div>
             <div className="space-y-3">
               <Label className="text-sm font-medium">Generate from AI (optional)</Label>
               <Textarea
@@ -368,6 +418,22 @@ export function SettingsPanel({
                         <Badge variant="secondary" className="shrink-0 rounded-md text-xs capitalize">
                           {q.type}
                         </Badge>
+                        {q.type === "emoji" && (
+                          <select
+                            value={q.ratingStyle ?? settings.defaultRatingStyle ?? "star"}
+                            onChange={(e) => {
+                              const next = settings.customQuestions.map((x) =>
+                                x.id === q.id ? { ...x, ratingStyle: (e.target.value as RatingStyle) } : x
+                              );
+                              save({ customQuestions: next });
+                            }}
+                            className="rounded-lg border border-input bg-background px-2 py-1 text-xs"
+                          >
+                            {RATING_STYLES.map((s) => (
+                              <option key={s.value} value={s.value}>{s.label}</option>
+                            ))}
+                          </select>
+                        )}
                         <span className="text-muted-foreground shrink-0 text-xs">{q.key}</span>
                         <div className="flex gap-0.5 shrink-0">
                           <Button
@@ -447,6 +513,23 @@ export function SettingsPanel({
                     </Button>
                   ))}
                 </div>
+                {newQuestionType === "emoji" && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Label className="text-xs text-muted-foreground">Display as</Label>
+                    {RATING_STYLES.map((s) => (
+                      <Button
+                        key={s.value}
+                        type="button"
+                        variant={newQuestionRatingStyle === s.value ? "secondary" : "ghost"}
+                        size="sm"
+                        className="rounded-lg"
+                        onClick={() => setNewQuestionRatingStyle(s.value)}
+                      >
+                        {s.label}
+                      </Button>
+                    ))}
+                  </div>
+                )}
                 <Input
                   placeholder="Question text"
                   value={newQuestionTitle}
@@ -477,6 +560,7 @@ export function SettingsPanel({
                         type: newQuestionType,
                         key: newQuestionKey,
                         order: settings.customQuestions.length,
+                        ratingStyle: newQuestionType === "emoji" ? newQuestionRatingStyle : undefined,
                         placeholder: newQuestionType === "text" ? "Your answer..." : undefined,
                         yesNoLabels: newQuestionType === "yesNo" ? ["Yes", "No"] : undefined,
                       };
@@ -496,7 +580,7 @@ export function SettingsPanel({
         </Card>
       </motion.div>
 
-      {/* Menu items (if showMenu) */}
+      {/* Menu (categories + items with images, price, description, enable/disable) */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -509,47 +593,16 @@ export function SettingsPanel({
               Customize menu categories and items guests see when they tap “Explore Menu”
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {settings.menuItems.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-2">
-                No menu items yet. Add categories and items below (or leave empty to use placeholder).
-              </p>
-            ) : (
-              <ul className="space-y-2">
-                {settings.menuItems
-                  .sort((a, b) => a.order - b.order)
-                  .map((item) => (
-                    <li
-                      key={item.id}
-                      className="flex items-center justify-between rounded-xl border border-border bg-muted/20 p-3 text-sm transition-colors hover:bg-muted/40"
-                    >
-                      <span className="font-medium">{item.name}</span>
-                      <Badge variant="outline" className="rounded-md">{item.category}</Badge>
-                    </li>
-                  ))}
-              </ul>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-lg"
-              onClick={() => {
-                const newItem: MenuItem = {
-                  id: "menu-" + Date.now(),
-                  category: "Mains",
-                  name: "New item",
-                  order: settings.menuItems.length,
-                };
-                save({ menuItems: [...settings.menuItems, newItem] });
-              }}
-            >
-              Add menu item
-            </Button>
+          <CardContent>
+            <MenuManager
+              categories={settings.menuCategories ?? []}
+              onSave={(menuCategories) => save({ menuCategories })}
+            />
           </CardContent>
         </Card>
       </motion.div>
 
-      {/* Service items (if showServices) */}
+      {/* Services (categories + items with details) */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -562,40 +615,46 @@ export function SettingsPanel({
               Customize services guests see when they tap “Explore Services”
             </CardDescription>
           </CardHeader>
+          <CardContent>
+            <ServicesManager
+              categories={settings.serviceCategories ?? []}
+              onSave={(serviceCategories) => save({ serviceCategories })}
+            />
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Billing & subscription (Razorpay placeholder) */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.22 }}
+      >
+        <Card className="admin-card overflow-hidden border bg-card">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg font-semibold">Billing & subscription</CardTitle>
+            <CardDescription className="text-muted-foreground">
+              Manage your plan and payments. Subscriptions are powered by Razorpay.
+            </CardDescription>
+          </CardHeader>
           <CardContent className="space-y-4">
-            {settings.serviceItems.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-2">
-                No services yet. Add below (or leave empty to use placeholder).
-              </p>
-            ) : (
-              <ul className="space-y-2">
-                {settings.serviceItems
-                  .sort((a, b) => a.order - b.order)
-                  .map((item) => (
-                    <li
-                      key={item.id}
-                      className="flex items-center justify-between rounded-xl border border-border bg-muted/20 p-3 text-sm transition-colors hover:bg-muted/40"
-                    >
-                      <span className="font-medium">{item.name}</span>
-                    </li>
-                  ))}
-              </ul>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-lg"
-              onClick={() => {
-                const newItem: ServiceItem = {
-                  id: "svc-" + Date.now(),
-                  name: "New service",
-                  order: settings.serviceItems.length,
-                };
-                save({ serviceItems: [...settings.serviceItems, newItem] });
-              }}
-            >
-              Add service
-            </Button>
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-muted/30 p-4">
+              <span className="text-sm font-medium text-foreground">Current plan</span>
+              <Badge variant="secondary" className="rounded-lg">
+                {PLANS[currentPlan]?.name ?? currentPlan}
+              </Badge>
+              <span className="text-xs text-muted-foreground">
+                {PLANS[currentPlan]?.features?.slice(0, 2).join(" · ") ?? ""}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="default" size="sm" className="rounded-xl" asChild>
+                <a href="/#pricing">Upgrade plan</a>
+              </Button>
+              <Button variant="outline" size="sm" className="rounded-xl" disabled>
+                Manage subscription (coming soon)
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </motion.div>

@@ -43,6 +43,12 @@ export default async function AdminLayout({
               Dashboard
             </Link>
             <Link
+              href="/admin/onboarding"
+              className="rounded-lg px-3.5 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-colors"
+            >
+              Setup
+            </Link>
+            <Link
               href="/admin/settings"
               className="rounded-lg px-3.5 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-colors"
             >

@@ -29,7 +29,7 @@ export default function HomePage() {
             href="/"
             className="text-lg font-bold text-[var(--primary)] sm:text-xl shrink-0"
           >
-            GuestLoop
+            GuestLoops
           </Link>
           <nav className="flex flex-wrap items-center justify-end gap-2 sm:gap-4">
             <Link
@@ -68,7 +68,7 @@ export default function HomePage() {
               Get more Google reviews & repeat customers automatically
             </h1>
             <p className="mt-3 text-base text-[var(--muted-foreground)] sm:mt-4 sm:text-lg md:text-xl">
-              Guests scan a QR, give quick feedback, and GuestLoop turns it into
+              Guests scan a QR, give quick feedback, and GuestLoops turns it into
               SEO-friendly Google reviews and WhatsApp offers.
             </p>
             <div className="mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center sm:gap-4 lg:justify-start">
@@ -181,7 +181,7 @@ export default function HomePage() {
       <AnimatedSection className="border-t border-[var(--border)] bg-[var(--muted)]/50 py-12 sm:py-24">
         <div className="mx-auto max-w-6xl px-4 text-center sm:px-6">
           <h2 className="text-xl font-bold sm:text-3xl md:text-3xl">
-            GuestLoop fixes this with one smooth journey
+            GuestLoops fixes this with one smooth journey
           </h2>
           <ul className="mt-6 flex flex-wrap justify-center gap-4 sm:mt-8 sm:gap-6">
             {[
@@ -234,7 +234,7 @@ export default function HomePage() {
                 </div>
               </div>
               <p className="mt-6 text-center text-xs text-[var(--muted-foreground)]">
-                Results vary by venue. Powered by GuestLoop + OpenAI · Google.
+                Results vary by venue. Powered by GuestLoops + OpenAI · Google.
               </p>
             </div>
           </div>
@@ -329,7 +329,7 @@ export default function HomePage() {
       <AnimatedSection className="border-t border-[var(--border)] bg-[var(--card)] py-12 sm:py-24">
         <div className="mx-auto max-w-4xl px-4 sm:px-6">
           <h2 className="text-center text-xl font-bold sm:text-3xl">
-            See GuestLoop in action
+            See GuestLoops in action
           </h2>
           <p className="mx-auto mt-2 max-w-xl text-center text-sm text-[var(--muted-foreground)] sm:text-base">
             Watch how guests scan, feedback, and turn into 5-star reviews.
@@ -387,7 +387,7 @@ export default function HomePage() {
         <footer className="border-t border-[var(--border)] py-6 sm:py-8">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-            <span className="font-semibold text-[var(--primary)]">GuestLoop</span>
+            <span className="font-semibold text-[var(--primary)]">GuestLoops</span>
             <nav className="flex gap-6 text-sm text-[var(--muted-foreground)]">
               <Link href="/privacy" className="hover:text-[var(--foreground)]">
                 Privacy Policy
