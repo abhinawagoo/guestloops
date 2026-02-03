@@ -87,7 +87,7 @@ export function SettingsPanel({
           reviewHistoryText: reviewHistory,
           venueType: venues.find((v) => v.id === venueId)?.type ?? "restaurant",
           customerContext: customerContext || undefined,
-          defaultRatingStyle: settings.defaultRatingStyle ?? "star",
+          defaultRatingStyle: settings?.defaultRatingStyle ?? "star",
         }),
       });
       const data = await res.json();
