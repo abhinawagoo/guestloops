@@ -66,6 +66,8 @@ export function SigninForm() {
         setError(friendlyAuthError(signInError.message));
         return;
       }
+      // Brief delay so session cookie is persisted before full-page redirect
+      await new Promise((r) => setTimeout(r, 200));
       const meRes = await fetch("/api/app/me", { credentials: "include" });
       const me = await meRes.json().catch(() => ({}));
       const slug = me.tenantSlug ?? (data.user?.user_metadata?.tenant_slug as string) ?? "demo";

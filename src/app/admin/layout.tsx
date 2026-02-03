@@ -2,7 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getTenantFromHeaders } from "@/lib/tenant";
-import { getTenantByIdAsync } from "@/lib/tenant-resolver";
+import { getTenantByIdAsync, getTenantBySlugAsync } from "@/lib/tenant-resolver";
 
 export default async function AdminLayout({
   children,
@@ -12,12 +12,18 @@ export default async function AdminLayout({
   const headersList = await headers();
   const ctx = getTenantFromHeaders(headersList);
 
-  if (ctx.hostType !== "tenant" || !ctx.tenantId) {
+  if (ctx.hostType !== "tenant") {
     redirect("/");
   }
 
-  const tenant = await getTenantByIdAsync(ctx.tenantId);
-  if (!tenant) redirect("/");
+  // Resolve tenant: proxy may set tenantId; if not, resolve by slug (e.g. Edge/env issues)
+  let tenant = ctx.tenantId ? await getTenantByIdAsync(ctx.tenantId) : null;
+  if (!tenant && ctx.tenantSlug) {
+    tenant = await getTenantBySlugAsync(ctx.tenantSlug);
+  }
+  if (!tenant) {
+    redirect("/");
+  }
 
   return (
     <div className="admin min-h-screen bg-background">

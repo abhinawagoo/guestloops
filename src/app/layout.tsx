@@ -8,10 +8,54 @@ const inter = Inter({
   weight: ["400", "500", "600", "700"],
 });
 
+const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://guestloops.com";
+const title = "GuestLoop — Turn guest feedback into 5-star reviews";
+const description =
+  "Guests scan a QR, give quick feedback, and GuestLoop turns it into SEO-friendly Google reviews and WhatsApp offers. Get more reviews and repeat visits. For hotels and restaurants.";
+
 export const metadata: Metadata = {
-  title: "GuestLoop — Turn guest feedback into 5-star reviews",
-  description:
-    "Guests scan a QR, give quick feedback, and GuestLoop turns it into SEO-friendly Google reviews and WhatsApp offers. Get more reviews and repeat visits.",
+  metadataBase: new URL(appUrl),
+  title: {
+    default: title,
+    template: "%s | GuestLoop",
+  },
+  description,
+  keywords: [
+    "Google reviews",
+    "guest feedback",
+    "hospitality",
+    "hotel reviews",
+    "restaurant reviews",
+    "QR feedback",
+    "review generation",
+    "GuestLoop",
+  ],
+  authors: [{ name: "GuestLoop", url: appUrl }],
+  creator: "GuestLoop",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: appUrl,
+    siteName: "GuestLoop",
+    title,
+    description,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+    },
+  },
+  alternates: {
+    canonical: appUrl,
+  },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -27,6 +71,29 @@ export const viewport: Viewport = {
   themeColor: "#0a0a0a",
 };
 
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": `${appUrl}/#organization`,
+      name: "GuestLoop",
+      url: appUrl,
+      description,
+      sameAs: [],
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${appUrl}/#website`,
+      url: appUrl,
+      name: "GuestLoop",
+      description,
+      publisher: { "@id": `${appUrl}/#organization` },
+      inLanguage: "en-US",
+    },
+  ],
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -35,6 +102,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} font-sans antialiased`}>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
         {children}
       </body>
     </html>

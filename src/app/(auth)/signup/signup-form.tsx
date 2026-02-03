@@ -93,8 +93,10 @@ export function SignupForm() {
           setError("Account created but sign-in failed. Please sign in manually.");
           return;
         }
+        // Brief delay so session cookie is persisted before full-page redirect
+        await new Promise((r) => setTimeout(r, 200));
       }
-      // Use window.location so session cookie is sent on next load
+      // Full-page redirect so session cookie is sent on next request
       window.location.href = `/admin?tenant=${slug}`;
     } finally {
       setLoading(false);
