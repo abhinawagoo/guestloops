@@ -1,0 +1,95 @@
+import { NextResponse } from "next/server";
+
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://guestloops.com";
+
+/**
+ * Serves robots.txt as plain text with correct Content-Type so Google and other
+ * crawlers accept it. Standard robots.txt format (no Host: directive; deprecated by Google).
+ */
+export function GET() {
+  const lines: string[] = [
+    "User-agent: *",
+    "Allow: /",
+    "Disallow: /admin",
+    "Disallow: /admin/",
+    "Disallow: /api/",
+    "Disallow: /auth/",
+    "Disallow: /superadmin",
+    "Disallow: /superadmin/",
+    "",
+    "User-agent: GPTBot",
+    "Allow: /",
+    "Disallow: /admin",
+    "Disallow: /admin/",
+    "Disallow: /api/",
+    "Disallow: /auth/",
+    "Disallow: /superadmin",
+    "Disallow: /superadmin/",
+    "",
+    "User-agent: ChatGPT-User",
+    "Allow: /",
+    "Disallow: /admin",
+    "Disallow: /admin/",
+    "Disallow: /api/",
+    "Disallow: /auth/",
+    "Disallow: /superadmin",
+    "Disallow: /superadmin/",
+    "",
+    "User-agent: Google-Extended",
+    "Allow: /",
+    "Disallow: /admin",
+    "Disallow: /admin/",
+    "Disallow: /api/",
+    "Disallow: /auth/",
+    "Disallow: /superadmin",
+    "Disallow: /superadmin/",
+    "",
+    "User-agent: Claude-Web",
+    "Allow: /",
+    "Disallow: /admin",
+    "Disallow: /admin/",
+    "Disallow: /api/",
+    "Disallow: /auth/",
+    "Disallow: /superadmin",
+    "Disallow: /superadmin/",
+    "",
+    "User-agent: anthropic-ai",
+    "Allow: /",
+    "Disallow: /admin",
+    "Disallow: /admin/",
+    "Disallow: /api/",
+    "Disallow: /auth/",
+    "Disallow: /superadmin",
+    "Disallow: /superadmin/",
+    "",
+    "User-agent: PerplexityBot",
+    "Allow: /",
+    "Disallow: /admin",
+    "Disallow: /admin/",
+    "Disallow: /api/",
+    "Disallow: /auth/",
+    "Disallow: /superadmin",
+    "Disallow: /superadmin/",
+    "",
+    "User-agent: Applebot-Extended",
+    "Allow: /",
+    "Disallow: /admin",
+    "Disallow: /admin/",
+    "Disallow: /api/",
+    "Disallow: /auth/",
+    "Disallow: /superadmin",
+    "Disallow: /superadmin/",
+    "",
+    `Sitemap: ${baseUrl}/sitemap.xml`,
+  ];
+
+  const body = lines.join("\n");
+
+  return new NextResponse(body, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "public, max-age=86400, s-maxage=86400",
+    },
+  });
+}
