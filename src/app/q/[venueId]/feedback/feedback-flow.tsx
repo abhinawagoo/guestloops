@@ -349,35 +349,18 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
                 </CardContent>
               </Card>
             ) : review ? (
-              <Card className="rounded-2xl border border-border/60 bg-card shadow-lg shadow-black/5">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xl font-semibold tracking-tight">
-                    Based on your feedback, here's a review others find helpful. Want to post this?
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground mt-1">You only approve — no writing required.</p>
-                </CardHeader>
-                <CardContent className="space-y-5 pb-8">
-                  <div className="rounded-xl bg-muted/60 p-5 text-base leading-relaxed text-foreground">
-                    {review.text}
-                  </div>
-                  <Button asChild size="lg" className="w-full">
-                    <a
-                      href={
-                        settings.googleReviewUrl?.trim()
-                          ? settings.googleReviewUrl.trim()
-                          : venue.googlePlaceId
-                            ? `https://search.google.com/local/writereview?placeid=${encodeURIComponent(venue.googlePlaceId)}`
-                            : `https://www.google.com/search?q=${encodeURIComponent(venue.name)}+review`
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Post to Google →
-                    </a>
-                  </Button>
-                  <Button variant="ghost" onClick={() => setDone(true)}>{claimRewardLabel}</Button>
-                </CardContent>
-              </Card>
+              <GoogleReviewShareCard
+                reviewText={review.text}
+                googleReviewUrl={
+                  settings.googleReviewUrl?.trim()
+                    ? settings.googleReviewUrl.trim()
+                    : venue.googlePlaceId
+                      ? `https://search.google.com/local/writereview?placeid=${encodeURIComponent(venue.googlePlaceId)}`
+                      : `https://www.google.com/search?q=${encodeURIComponent(venue.name)}+review`
+                }
+                onSkip={() => setDone(true)}
+                claimRewardLabel={claimRewardLabel}
+              />
             ) : null}
           </motion.div>
         )}
@@ -397,6 +380,63 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
         </motion.div>
       )}
     </div>
+  );
+}
+
+/** Industry-standard flow: copy review to clipboard + open Google in new tab. User pastes, selects stars, submits. */
+function GoogleReviewShareCard({
+  reviewText,
+  googleReviewUrl,
+  onSkip,
+  claimRewardLabel,
+}: {
+  reviewText: string;
+  googleReviewUrl: string;
+  onSkip: () => void;
+  claimRewardLabel: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyAndOpen = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(reviewText);
+      setCopied(true);
+      window.open(googleReviewUrl, "_blank", "noopener,noreferrer");
+    } catch {
+      // Fallback: open Google so user can still paste manually if clipboard fails
+      window.open(googleReviewUrl, "_blank", "noopener,noreferrer");
+    }
+  }, [reviewText, googleReviewUrl]);
+
+  return (
+    <Card className="rounded-2xl border border-border/60 bg-card shadow-lg shadow-black/5">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-xl font-semibold tracking-tight">
+          Looks good? Share it on Google
+        </CardTitle>
+        <p className="text-sm text-muted-foreground mt-1">
+          One tap copies your review and opens Google. Then paste, pick your stars, and submit.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-5 pb-8">
+        <div className="rounded-xl bg-muted/60 p-5 text-base leading-relaxed text-foreground">
+          {reviewText}
+        </div>
+        <Button
+          size="lg"
+          className="w-full"
+          onClick={handleCopyAndOpen}
+        >
+          {copied ? "Copied! Open Google →" : "Copy Review & Open Google"}
+        </Button>
+        <p className="text-xs text-center text-muted-foreground">
+          Your review is ready to paste. Select your star rating on Google and submit.
+        </p>
+        <Button variant="ghost" onClick={onSkip} className="w-full">
+          {claimRewardLabel}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 

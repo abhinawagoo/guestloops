@@ -41,9 +41,10 @@ export async function GET(request: Request) {
     }
   }
 
-  const slug = tenantSlug ?? "demo";
   const base = next.startsWith("/") ? next : "/admin";
   const separator = base.includes("?") ? "&" : "?";
-  const redirectTo = `${base}${slug ? `${separator}tenant=${slug}` : ""}`;
+  const redirectTo = tenantSlug
+    ? `${base}${separator}tenant=${tenantSlug}`
+    : base;
   return NextResponse.redirect(`${origin}${redirectTo}`);
 }

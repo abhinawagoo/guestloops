@@ -5,6 +5,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   auth_callback_error: "Sign-in failed. Please try again.",
   missing_code: "Missing authorization. Please try again.",
   config: "Sign-in is not configured.",
+  no_tenant: "Your account is not linked to a business. Please sign up first or contact support.",
 };
 
 export default async function SigninPage({

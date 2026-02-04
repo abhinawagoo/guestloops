@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getVenueWithSettings } from "@/data/demo-venues";
+import { getVenueWithSettingsAsync } from "@/data/demo-venues";
 import { FeedbackFlow } from "./feedback-flow";
 
 export default async function FeedbackPage({
@@ -9,7 +9,7 @@ export default async function FeedbackPage({
   params: Promise<{ venueId: string }>;
 }) {
   const { venueId } = await params;
-  const venue = getVenueWithSettings(venueId);
+  const venue = await getVenueWithSettingsAsync(venueId);
   if (!venue) notFound();
 
   return (

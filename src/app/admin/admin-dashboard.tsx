@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronRight } from "lucide-react";
+import { FeedbackQRCard } from "@/components/admin/feedback-qr-card";
 
 type Submission = {
   id: string;
@@ -23,30 +24,28 @@ type Submission = {
   createdAt: string;
 };
 
-// Demo data — replace with Supabase/API
-const ASPECT_SCORES = [
-  { aspect: "Cleanliness", score: 78, color: "green" },
-  { aspect: "Service", score: 42, color: "orange" },
-  { aspect: "Food Quality", score: 61, color: "green" },
-  { aspect: "Value", score: 35, color: "red" },
-] as const;
+type AspectScore = { aspect: string; key: string; score: number; count?: number };
 
-const AI_INSIGHTS = [
-  "Customers love food quality but complain about slow service during dinner hours (7–9 PM).",
-  "Rooms with balcony receive 32% higher ratings.",
-  "Repeat visitors rate service 18% higher than first-time guests.",
-];
-
-const colorClasses = {
-  green: "bg-emerald-500",
-  orange: "bg-amber-500",
-  red: "bg-red-500",
+type DashboardStats = {
+  aspectScores: AspectScore[];
+  totalSubmissions: number;
+  googleRedirectCount: number;
+  completionToGooglePercent: number;
+  days: number;
 };
+
+function progressColor(score: number): "green" | "orange" | "red" {
+  if (score >= 60) return "green";
+  if (score >= 40) return "orange";
+  return "red";
+}
 
 export function AdminDashboard() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loadingSubmissions, setLoadingSubmissions] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loadingStats, setLoadingStats] = useState(true);
 
   useEffect(() => {
     fetch("/api/admin/submissions?limit=10")
@@ -56,8 +55,26 @@ export function AdminDashboard() {
       .finally(() => setLoadingSubmissions(false));
   }, []);
 
+  useEffect(() => {
+    fetch("/api/admin/dashboard-stats?days=30")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error) return;
+        setStats({
+          aspectScores: data.aspectScores ?? [],
+          totalSubmissions: data.totalSubmissions ?? 0,
+          googleRedirectCount: data.googleRedirectCount ?? 0,
+          completionToGooglePercent: data.completionToGooglePercent ?? 0,
+          days: data.days ?? 30,
+        });
+      })
+      .catch(() => setStats(null))
+      .finally(() => setLoadingStats(false));
+  }, []);
+
   return (
     <div className="space-y-8">
+      <FeedbackQRCard />
       <Card className="admin-card border bg-card">
         <CardHeader className="pb-4">
           <CardTitle className="text-lg font-semibold">Recent feedback</CardTitle>
@@ -191,25 +208,36 @@ export function AdminDashboard() {
           </p>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-6 sm:grid-cols-2">
-            {ASPECT_SCORES.map(({ aspect, score, color }) => (
-              <div key={aspect} className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="font-medium">{aspect}</span>
-                  <span className="text-muted-foreground">{score}%</span>
-                </div>
-                <Progress
-                  value={score}
-                  className={cn(
-                    "h-3 rounded-full [&_[data-slot=progress-indicator]]:rounded-full [&_[data-slot=progress-indicator]]:bg-current",
-                    color === "green" && "[&_[data-slot=progress-indicator]]:bg-emerald-500",
-                    color === "orange" && "[&_[data-slot=progress-indicator]]:bg-amber-500",
-                    color === "red" && "[&_[data-slot=progress-indicator]]:bg-red-500"
-                  )}
-                />
-              </div>
-            ))}
-          </div>
+          {loadingStats ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : !stats || stats.aspectScores.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No feedback in the last 30 days. Share your QR so guests can leave feedback.
+            </p>
+          ) : (
+            <div className="grid gap-6 sm:grid-cols-2">
+              {stats.aspectScores.map(({ aspect, score }) => {
+                const color = progressColor(score);
+                return (
+                  <div key={aspect} className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium">{aspect}</span>
+                      <span className="text-muted-foreground">{score}%</span>
+                    </div>
+                    <Progress
+                      value={score}
+                      className={cn(
+                        "h-3 rounded-full [&_[data-slot=progress-indicator]]:rounded-full [&_[data-slot=progress-indicator]]:bg-current",
+                        color === "green" && "[&_[data-slot=progress-indicator]]:bg-emerald-500",
+                        color === "orange" && "[&_[data-slot=progress-indicator]]:bg-amber-500",
+                        color === "red" && "[&_[data-slot=progress-indicator]]:bg-red-500"
+                      )}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -221,19 +249,15 @@ export function AdminDashboard() {
           </p>
         </CardHeader>
         <CardContent>
-          <ul className="space-y-3">
-            {AI_INSIGHTS.map((insight, i) => (
-              <li
-                key={i}
-                className="flex gap-3 rounded-xl border border-border bg-muted/20 p-4 text-sm transition-colors hover:bg-muted/40"
-              >
-                <Badge variant="secondary" className="shrink-0 rounded-md">
-                  Insight
-                </Badge>
-                <span>{insight}</span>
-              </li>
-            ))}
-          </ul>
+          {stats && stats.totalSubmissions < 5 ? (
+            <p className="text-sm text-muted-foreground rounded-xl border border-border bg-muted/20 p-4">
+              We need more feedback to generate insights. Share your QR to collect more data.
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground rounded-xl border border-border bg-muted/20 p-4">
+              AI insights will appear here once we have enough feedback. Keep sharing your QR.
+            </p>
+          )}
         </CardContent>
       </Card>
 
@@ -245,10 +269,24 @@ export function AdminDashboard() {
         </TabsList>
         <TabsContent value="overview" className="mt-4">
           <Card className="admin-card border bg-card">
-            <CardContent className="pt-6">
+            <CardContent className="pt-6 space-y-4">
+              {stats && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-lg border border-border bg-muted/20 p-4">
+                    <p className="text-2xl font-semibold">{stats.totalSubmissions}</p>
+                    <p className="text-sm text-muted-foreground">Feedback (last 30 days)</p>
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/20 p-4">
+                    <p className="text-2xl font-semibold">{stats.completionToGooglePercent}%</p>
+                    <p className="text-sm text-muted-foreground">Redirected to Google</p>
+                  </div>
+                </div>
+              )}
               <p className="text-sm text-muted-foreground">
-                Scan → completion target: 65–80%. Completion → Google review:
-                50–70%. Connect Supabase to see live metrics.
+                Target: completion → Google review 50–70%.{" "}
+                <Link href="/admin/reviews" className="underline text-foreground">
+                  View all feedback →
+                </Link>
               </p>
             </CardContent>
           </Card>
@@ -258,15 +296,16 @@ export function AdminDashboard() {
             <CardHeader className="pb-2">
               <CardTitle className="text-lg font-semibold">Google review management</CardTitle>
               <p className="text-sm text-muted-foreground">
-                Auto-reply modes: Auto (AI), Guided (tone), Manual. Reply styles:
-                Professional, Warm, Apologetic, Luxury, Casual.
+                Reply styles: Professional, Warm, Apologetic, Luxury, Casual. Configure in Settings.
               </p>
             </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Connect Google Business Profile API to enable auto-reply and
-                reply templates.
-              </p>
+            <CardContent className="space-y-3">
+              <Link href="/admin/reviews">
+                <Button variant="secondary" size="sm">Reviews & AI replies →</Button>
+              </Link>
+              <Link href="/admin/settings">
+                <Button variant="outline" size="sm">Settings (Google review URL, tone) →</Button>
+              </Link>
             </CardContent>
           </Card>
         </TabsContent>
@@ -275,14 +314,12 @@ export function AdminDashboard() {
             <CardHeader className="pb-2">
               <CardTitle className="text-lg font-semibold">Customer retention</CardTitle>
               <p className="text-sm text-muted-foreground">
-                Guests who rated service low → apology coupon. Personalized
-                offers, WhatsApp/SMS (later).
+                Personalized offers and follow-up (WhatsApp/SMS) — coming soon.
               </p>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Collect phone + visit context in feedback flow to unlock
-                campaigns.
+                Collect phone + visit context in your feedback flow to unlock campaigns later.
               </p>
             </CardContent>
           </Card>

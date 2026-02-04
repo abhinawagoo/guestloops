@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getVenueWithSettings } from "@/data/demo-venues";
+import { getVenueWithSettingsAsync } from "@/data/demo-venues";
 import { QRLanding } from "./qr-landing";
 
 export default async function QRPage({
@@ -8,7 +8,7 @@ export default async function QRPage({
   params: Promise<{ venueId: string }>;
 }) {
   const { venueId } = await params;
-  const venue = getVenueWithSettings(venueId);
+  const venue = await getVenueWithSettingsAsync(venueId);
   if (!venue) notFound();
 
   return (

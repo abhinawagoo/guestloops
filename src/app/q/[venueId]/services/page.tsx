@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getVenueWithSettings } from "@/data/demo-venues";
+import { getVenueWithSettingsAsync } from "@/data/demo-venues";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -10,7 +10,7 @@ export default async function ServicesPage({
   params: Promise<{ venueId: string }>;
 }) {
   const { venueId } = await params;
-  const venue = getVenueWithSettings(venueId);
+  const venue = await getVenueWithSettingsAsync(venueId);
   if (!venue) notFound();
 
   const categories =

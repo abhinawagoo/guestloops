@@ -42,6 +42,7 @@ export function SettingsPanel({
   const [venueId, setVenueId] = useState(venues[0]?.id ?? "");
   const hasVenues = venues.length > 0;
   const [settings, setSettings] = useState<VenueSettings | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [reviewHistory, setReviewHistory] = useState("");
   const [customerContext, setCustomerContext] = useState("");
@@ -54,10 +55,30 @@ export function SettingsPanel({
 
   useEffect(() => {
     if (!venueId) return;
+    setLoadError(null);
     fetch(`/api/admin/settings/${venueId}`)
-      .then((r) => r.json())
-      .then(setSettings)
-      .catch(() => setSettings(null));
+      .then((r) => {
+        if (!r.ok) {
+          setLoadError(r.status === 404 ? "Venue not found." : "Failed to load settings.");
+          return null;
+        }
+        return r.json();
+      })
+      .then((data) => {
+        if (data && typeof data === "object" && "venueId" in data) {
+          setSettings(data as VenueSettings);
+          setLoadError(null);
+        } else if (!data) {
+          setSettings(null);
+        } else {
+          setSettings(null);
+          setLoadError("Invalid settings response.");
+        }
+      })
+      .catch(() => {
+        setSettings(null);
+        setLoadError("Failed to load settings.");
+      });
   }, [venueId]);
 
   const save = async (patch: Partial<VenueSettings>) => {
@@ -70,7 +91,9 @@ export function SettingsPanel({
         body: JSON.stringify(patch),
       });
       const updated = await res.json();
-      setSettings(updated);
+      if (res.ok && updated && typeof updated === "object" && "venueId" in updated) {
+        setSettings(updated as VenueSettings);
+      }
     } finally {
       setSaving(false);
     }
@@ -111,13 +134,19 @@ export function SettingsPanel({
 
   if (!settings) {
     return (
-      <div className="admin-card rounded-2xl border bg-card p-10 text-center text-muted-foreground text-sm">
-        Loading settings…
+      <div className="admin-card rounded-2xl border bg-card p-10 text-center text-sm">
+        {loadError ? (
+          <p className="text-destructive">{loadError}</p>
+        ) : (
+          <p className="text-muted-foreground">Loading settings…</p>
+        )}
       </div>
     );
   }
 
   const venue = venues.find((v) => v.id === venueId);
+  const uiText = settings.uiText ?? {};
+  const customQuestions = settings.customQuestions ?? [];
 
   return (
     <div className="space-y-10">
@@ -235,9 +264,9 @@ export function SettingsPanel({
               <Label className="text-sm font-medium">Reward / incentive line</Label>
               <Input
                 placeholder="e.g. Win 10% off your next visit 🎁"
-                value={settings.uiText.rewardCta ?? ""}
+                value={uiText.rewardCta ?? ""}
                 onChange={(e) =>
-                  save({ uiText: { ...settings.uiText, rewardCta: e.target.value } })
+                  save({ uiText: { ...uiText, rewardCta: e.target.value } })
                 }
                 className="max-w-md rounded-xl border-input"
               />
@@ -246,9 +275,9 @@ export function SettingsPanel({
               <Label className="text-sm font-medium">Welcome subtitle (under venue name)</Label>
               <Input
                 placeholder="Scan to explore or share your experience"
-                value={settings.uiText.welcomeSubtitle ?? ""}
+                value={uiText.welcomeSubtitle ?? ""}
                 onChange={(e) =>
-                  save({ uiText: { ...settings.uiText, welcomeSubtitle: e.target.value } })
+                  save({ uiText: { ...uiText, welcomeSubtitle: e.target.value } })
                 }
                 className="max-w-md rounded-xl border-input"
               />
@@ -257,9 +286,9 @@ export function SettingsPanel({
               <Label className="text-sm font-medium">Feedback card title</Label>
               <Input
                 placeholder="Give Feedback & Win a Reward"
-                value={settings.uiText.feedbackCardTitle ?? ""}
+                value={uiText.feedbackCardTitle ?? ""}
                 onChange={(e) =>
-                  save({ uiText: { ...settings.uiText, feedbackCardTitle: e.target.value } })
+                  save({ uiText: { ...uiText, feedbackCardTitle: e.target.value } })
                 }
                 className="max-w-md rounded-xl border-input"
               />
@@ -268,9 +297,9 @@ export function SettingsPanel({
               <Label className="text-sm font-medium">Claim reward button text</Label>
               <Input
                 placeholder="I'm done — claim my reward"
-                value={settings.uiText.claimRewardLabel ?? ""}
+                value={uiText.claimRewardLabel ?? ""}
                 onChange={(e) =>
-                  save({ uiText: { ...settings.uiText, claimRewardLabel: e.target.value } })
+                  save({ uiText: { ...uiText, claimRewardLabel: e.target.value } })
                 }
                 className="max-w-md rounded-xl border-input"
               />
@@ -390,12 +419,12 @@ export function SettingsPanel({
             <div className="space-y-2">
               <Label className="text-sm font-medium">Your questions</Label>
               <ul className="space-y-2 rounded-xl border border-border bg-muted/20 p-3">
-                {(settings.customQuestions.length ? settings.customQuestions : []).length === 0 ? (
+                {customQuestions.length === 0 ? (
                   <li className="text-sm text-muted-foreground py-4 text-center">
                     No custom questions. Use “Suggest questions with AI” or add one below.
                   </li>
                 ) : (
-                  [...settings.customQuestions]
+                  [...customQuestions]
                     .sort((a, b) => a.order - b.order)
                     .map((q, i) => (
                       <li
@@ -408,7 +437,7 @@ export function SettingsPanel({
                         <Input
                           value={q.title}
                           onChange={(e) => {
-                            const next = settings.customQuestions.map((x) =>
+                            const next = customQuestions.map((x) =>
                               x.id === q.id ? { ...x, title: e.target.value } : x
                             );
                             save({ customQuestions: next });
@@ -422,7 +451,7 @@ export function SettingsPanel({
                           <select
                             value={q.ratingStyle ?? settings.defaultRatingStyle ?? "star"}
                             onChange={(e) => {
-                              const next = settings.customQuestions.map((x) =>
+                              const next = customQuestions.map((x) =>
                                 x.id === q.id ? { ...x, ratingStyle: (e.target.value as RatingStyle) } : x
                               );
                               save({ customQuestions: next });
@@ -442,11 +471,11 @@ export function SettingsPanel({
                             size="icon"
                             className="h-8 w-8 rounded-lg"
                             onClick={() => {
-                              const sorted = [...settings.customQuestions].sort((a, b) => a.order - b.order);
+                              const sorted = [...customQuestions].sort((a, b) => a.order - b.order);
                               if (i > 0) {
                                 const prev = sorted[i - 1];
                                 const curr = sorted[i];
-                                const next = settings.customQuestions.map((x) =>
+                                const next = customQuestions.map((x) =>
                                   x.id === prev.id ? { ...x, order: curr.order } : x.id === curr.id ? { ...x, order: prev.order } : x
                                 );
                                 save({ customQuestions: next });
@@ -461,11 +490,11 @@ export function SettingsPanel({
                             size="icon"
                             className="h-8 w-8 rounded-lg"
                             onClick={() => {
-                              const sorted = [...settings.customQuestions].sort((a, b) => a.order - b.order);
+                              const sorted = [...customQuestions].sort((a, b) => a.order - b.order);
                               if (i < sorted.length - 1) {
                                 const curr = sorted[i];
                                 const nextItem = sorted[i + 1];
-                                const next = settings.customQuestions.map((x) =>
+                                const next = customQuestions.map((x) =>
                                   x.id === curr.id ? { ...x, order: nextItem.order } : x.id === nextItem.id ? { ...x, order: curr.order } : x
                                 );
                                 save({ customQuestions: next });
@@ -480,7 +509,7 @@ export function SettingsPanel({
                             size="icon"
                             className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10 hover:text-destructive"
                             onClick={() => {
-                              const next = settings.customQuestions.filter((x) => x.id !== q.id);
+                              const next = customQuestions.filter((x) => x.id !== q.id);
                               save({ customQuestions: next });
                             }}
                           >
@@ -559,12 +588,12 @@ export function SettingsPanel({
                         title: newQuestionTitle.trim(),
                         type: newQuestionType,
                         key: newQuestionKey,
-                        order: settings.customQuestions.length,
+                        order: customQuestions.length,
                         ratingStyle: newQuestionType === "emoji" ? newQuestionRatingStyle : undefined,
                         placeholder: newQuestionType === "text" ? "Your answer..." : undefined,
                         yesNoLabels: newQuestionType === "yesNo" ? ["Yes", "No"] : undefined,
                       };
-                      save({ customQuestions: [...settings.customQuestions, newQ] });
+                      save({ customQuestions: [...customQuestions, newQ] });
                       setNewQuestionTitle("");
                       setNewQuestionKey("overall");
                       setAddingQuestion(false);

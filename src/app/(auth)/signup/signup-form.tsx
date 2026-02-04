@@ -37,11 +37,12 @@ export function SignupForm() {
         fetch("/api/app/me", { credentials: "include" })
           .then((r) => r.json())
           .then((me) => {
-            const slug = me.tenantSlug ?? (user.user_metadata?.tenant_slug as string) ?? "demo";
-            window.location.href = `/admin?tenant=${slug}`;
+            const slug = me.tenantSlug ?? (user.user_metadata?.tenant_slug as string) ?? null;
+            window.location.href = slug ? `/admin?tenant=${slug}` : "/admin";
           })
           .catch(() => {
-            window.location.href = "/admin?tenant=demo";
+            const slug = user.user_metadata?.tenant_slug as string | undefined;
+            window.location.href = slug ? `/admin?tenant=${slug}` : "/admin";
           });
       }
     });
@@ -79,7 +80,7 @@ export function SignupForm() {
         setError(data.error ?? "Sign up failed");
         return;
       }
-      const slug = data.tenant?.slug ?? "demo";
+      const slug = data.tenant?.slug ?? null;
       // When Supabase was used (tenant id is UUID), sign in to establish session
       const isSupabaseTenant =
         data.tenant?.id && /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(String(data.tenant.id));
@@ -96,8 +97,8 @@ export function SignupForm() {
         // Brief delay so session cookie is persisted before full-page redirect
         await new Promise((r) => setTimeout(r, 200));
       }
-      // Redirect to onboarding so owner can add Google Business review link
-      window.location.href = `/admin/onboarding?tenant=${slug}`;
+      if (slug) window.location.href = `/admin/onboarding?tenant=${slug}`;
+      else window.location.href = "/admin";
     } finally {
       setLoading(false);
     }

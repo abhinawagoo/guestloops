@@ -183,6 +183,14 @@ The app is **multi-tenant**: each hotel or restaurant is a **tenant** with its o
 
 **Supabase (optional):** For persistent auth and DB, set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (and `SUPABASE_SERVICE_ROLE_KEY` for signup and feedback submit). Run `supabase/migrations/001_tenants_profiles_venues.sql` and `002_feedback_review_outcome.sql` in the Supabase SQL Editor to create tables and add `generated_review_text`, `review_outcome` to `feedback_submissions`. Enable Google OAuth in Supabase Auth and add redirect URL `/auth/callback`. Sign-in uses Supabase Auth; session is refreshed in middleware.
 
+**Scalable multi-tenant (concurrent users):**
+
+- **Tenant resolution cache** (`src/lib/tenant-cache.ts`): In-memory TTL cache (90s, max 1000 entries) for slug→tenant and id→tenant. Reduces DB load when many requests hit the same tenant; safe for concurrent requests.
+- **Slug normalization**: Slugs are lowercased and trimmed everywhere (`normalizeTenantSlug`). DB has a unique index on `LOWER(slug)` (migration `005_tenants_slug_lowercase_unique.sql`) so one tenant per slug (case-insensitive). Use `?tenant=slug` and nav links keep the same slug so no redirect loops.
+- **Admin context helper** (`src/lib/require-admin-tenant.ts`): `requireAdminTenant()` returns `{ tenant, user, tenantId, tenantSlug }` only when the authenticated user’s profile belongs to the requested tenant. Use in admin API routes and return 403 when null.
+- **RLS**: All tenant-scoped tables (venues, venue_settings, feedback_submissions) use Row Level Security so each request only sees data for the user’s tenant. No cross-tenant data leakage.
+- **Stateless request flow**: Middleware sets `x-tenant-slug` and `x-tenant-id` from query/cookie/subdomain; layout and APIs read from headers. No shared mutable state; safe for horizontal scaling.
+
 ## Tech stack
 
 - **Frontend:** Next.js (App Router), Tailwind, shadcn/ui, Framer Motion.

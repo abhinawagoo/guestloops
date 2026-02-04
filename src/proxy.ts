@@ -8,6 +8,7 @@ const TENANT_COOKIE = "tenant_slug";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
+/** Resolves tenant from subdomain / ?tenant= / cookie; sets x-tenant-slug and x-tenant-id. Slug→id uses cached resolver for concurrent scale. */
 export async function proxy(request: NextRequest) {
   const url = request.nextUrl;
   const hostname = request.headers.get("host") ?? "";

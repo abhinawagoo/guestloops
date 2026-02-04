@@ -29,14 +29,16 @@ export function SigninForm() {
     if (!supabase) return;
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
-        fetch("/api/app/me")
+        fetch("/api/app/me", { credentials: "include" })
           .then((r) => r.json())
           .then((me) => {
-            const slug = me.tenantSlug ?? (user.user_metadata?.tenant_slug as string) ?? "demo";
-            window.location.href = `/admin?tenant=${slug}`;
+            const slug = me.tenantSlug ?? (user.user_metadata?.tenant_slug as string) ?? null;
+            if (slug) window.location.href = `/admin?tenant=${slug}`;
+            else window.location.href = "/admin";
           })
           .catch(() => {
-            window.location.href = "/admin?tenant=demo";
+            const slug = user.user_metadata?.tenant_slug as string | undefined;
+            window.location.href = slug ? `/admin?tenant=${slug}` : "/admin";
           });
       }
     });
@@ -70,8 +72,9 @@ export function SigninForm() {
       await new Promise((r) => setTimeout(r, 200));
       const meRes = await fetch("/api/app/me", { credentials: "include" });
       const me = await meRes.json().catch(() => ({}));
-      const slug = me.tenantSlug ?? (data.user?.user_metadata?.tenant_slug as string) ?? "demo";
-      window.location.href = `/admin?tenant=${slug}`;
+      const slug = me.tenantSlug ?? (data.user?.user_metadata?.tenant_slug as string) ?? null;
+      if (slug) window.location.href = `/admin?tenant=${slug}`;
+      else window.location.href = "/admin";
     } finally {
       setLoading(false);
     }

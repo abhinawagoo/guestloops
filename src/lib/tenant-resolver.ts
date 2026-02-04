@@ -2,9 +2,15 @@ import { createClient } from "@supabase/supabase-js";
 import type { Tenant } from "@/types/tenant";
 import type { Venue } from "@/types/venue";
 import { getTenantBySlug, getTenantById, getVenuesByTenantId } from "@/data/tenants";
+import { tenantCache } from "@/lib/tenant-cache";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+
+/** Normalize slug for lookups: lowercase, trim. Store slugs lowercase in DB for consistency. */
+export function normalizeTenantSlug(slug: string): string {
+  return slug.toLowerCase().trim();
+}
 
 function mapTenantRow(row: Record<string, unknown>): Tenant {
   return {
@@ -36,25 +42,42 @@ function mapVenueRow(row: Record<string, unknown>, tenantId: string): Venue {
   };
 }
 
-/** Resolve tenant by slug (in-memory first, then Supabase). Used in middleware and layout. */
+/** Resolve tenant by slug (cache → in-memory → Supabase). Safe for concurrent requests. */
 export async function getTenantBySlugAsync(slug: string): Promise<Tenant | null> {
-  const fromMemory = getTenantBySlug(slug);
-  if (fromMemory) return fromMemory;
+  const normalized = normalizeTenantSlug(slug);
+  const cached = tenantCache.getBySlug<Tenant>(normalized);
+  if (cached) return cached;
+  const fromMemory = getTenantBySlug(normalized);
+  if (fromMemory) {
+    tenantCache.setBySlug(normalized, fromMemory);
+    tenantCache.setById(fromMemory.id, fromMemory);
+    return fromMemory;
+  }
   if (!supabaseUrl || !supabaseAnonKey) return null;
   const supabase = createClient(supabaseUrl, supabaseAnonKey);
   const { data, error } = await supabase
     .from("tenants")
     .select("*")
-    .eq("slug", slug)
-    .single();
+    .ilike("slug", normalized)
+    .limit(1)
+    .maybeSingle();
   if (error || !data) return null;
-  return mapTenantRow(data as Record<string, unknown>);
+  const tenant = mapTenantRow(data as Record<string, unknown>);
+  tenantCache.setBySlug(normalized, tenant);
+  tenantCache.setById(tenant.id, tenant);
+  return tenant;
 }
 
-/** Resolve tenant by id (in-memory first, then Supabase). */
+/** Resolve tenant by id (cache → in-memory → Supabase). Safe for concurrent requests. */
 export async function getTenantByIdAsync(tenantId: string): Promise<Tenant | null> {
+  const cached = tenantCache.getById<Tenant>(tenantId);
+  if (cached) return cached;
   const fromMemory = getTenantById(tenantId);
-  if (fromMemory) return fromMemory;
+  if (fromMemory) {
+    tenantCache.setById(tenantId, fromMemory);
+    tenantCache.setBySlug(normalizeTenantSlug(fromMemory.slug), fromMemory);
+    return fromMemory;
+  }
   if (!supabaseUrl || !supabaseAnonKey) return null;
   const supabase = createClient(supabaseUrl, supabaseAnonKey);
   const { data, error } = await supabase
@@ -63,7 +86,10 @@ export async function getTenantByIdAsync(tenantId: string): Promise<Tenant | nul
     .eq("id", tenantId)
     .single();
   if (error || !data) return null;
-  return mapTenantRow(data as Record<string, unknown>);
+  const tenant = mapTenantRow(data as Record<string, unknown>);
+  tenantCache.setById(tenantId, tenant);
+  tenantCache.setBySlug(normalizeTenantSlug(tenant.slug), tenant);
+  return tenant;
 }
 
 /** Resolve venues for tenant (in-memory first, then Supabase). Pass server Supabase client for RLS (user session). */
