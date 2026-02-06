@@ -143,6 +143,19 @@ The app exposes standard routes and metadata for search and AI:
 
 Set **`NEXT_PUBLIC_APP_URL`** (e.g. `https://guestloops.com`) in production so sitemap and Open Graph use the correct canonical URL.
 
+## Google Business Profile (sync reviews & post replies)
+
+Optional integration to sync Google reviews and post AI-generated replies from the app.
+
+1. **Google Cloud:** Create a project, enable **Google My Business API** (Business Profile APIs), and create **OAuth 2.0 Client ID** (Web). Add redirect URI: `https://your-domain.com/api/google/oauth/callback` (and `http://localhost:3000/api/google/oauth/callback` for dev).
+2. **OAuth consent screen:** In Google Cloud Console → APIs & Services → OAuth consent screen, set:
+   - **Application home page:** `https://guestloops.com/` (or your production URL)
+   - **Application privacy policy link:** `https://guestloops.com/privacy`
+   - **Application Terms of Service link:** `https://guestloops.com/terms`
+3. **Env:** Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in Vercel / `.env.local`.
+4. **DB:** Run migration `007_google_business_profile.sql` in your Supabase project (creates `google_oauth_tokens`, `venue_gbp_locations`, `google_reviews`).
+5. **Admin:** In **Reviews**, click **Connect Google Business Profile** → sign in with the Google account that manages the business → **Link venue to GBP location** (pick account and location) → **Sync Google reviews**. Synced reviews get AI sentiment, topics, and trend tags. Use **Generate AI reply** → edit if needed → **Approve & post to Google** to publish replies via the API.
+
 ## Product structure
 
 ### Customer (QR flow)

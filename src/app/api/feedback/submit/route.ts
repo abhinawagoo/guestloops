@@ -11,6 +11,7 @@ export async function POST(request: Request) {
       venueId,
       tenantId,
       mobile,
+      guestName,
       scores,
       textAnswers,
       yesNoAnswers,
@@ -23,6 +24,7 @@ export async function POST(request: Request) {
       venueId: string;
       tenantId: string;
       mobile?: string;
+      guestName?: string;
       scores: Partial<FeedbackScores>;
       textAnswers?: Record<string, string>;
       yesNoAnswers?: Record<string, boolean>;
@@ -67,6 +69,7 @@ export async function POST(request: Request) {
         venue_id: venueId,
         tenant_id: resolvedTenantId,
         mobile: mobile ?? null,
+        guest_name: guestName?.trim() || null,
         scores: scores ?? {},
         text_answers: textAnswers ?? {},
         yes_no_answers: yesNoAnswers ?? {},

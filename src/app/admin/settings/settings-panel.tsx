@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import type { Venue } from "@/types/venue";
 import type { VenueSettings, CustomQuestion, MenuItem, ServiceItem, MenuCategory, ServiceCategory, QuestionType, ReplyTone, RatingStyle } from "@/types/venue";
@@ -241,6 +242,10 @@ export function SettingsPanel({
                 Used for the “Post to Google” button after feedback.
               </p>
             </div>
+            <p className="text-xs text-muted-foreground">
+              To sync Google reviews and post AI replies from the app, connect your account in the{" "}
+              <Link href="/admin/reviews" className="text-primary underline hover:no-underline">Reviews</Link> page.
+            </p>
             {saving && <p className="text-xs text-muted-foreground">Saving…</p>}
           </CardContent>
         </Card>

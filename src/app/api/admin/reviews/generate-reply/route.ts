@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { headers } from "next/headers";
 import OpenAI from "openai";
-import { getTenantFromHeaders } from "@/lib/tenant";
+import { requireAdminTenant } from "@/lib/require-admin-tenant";
 import { getVenueForTenant } from "@/data/tenants";
+import { getVenuesByTenantIdAsync } from "@/lib/tenant-resolver";
+import { createClient } from "@/lib/supabase/server";
 import { getSettings } from "@/data/venue-settings";
 import {
   REPLY_GENERATOR_SYSTEM,
@@ -17,11 +18,8 @@ const openai = process.env.OPENAI_API_KEY
 
 export async function POST(request: Request) {
   try {
-    const headersList = await headers();
-    const ctx = getTenantFromHeaders(headersList);
-    if (ctx.hostType !== "tenant" || !ctx.tenantId) {
-      return NextResponse.json({ error: "Tenant required" }, { status: 403 });
-    }
+    const admin = await requireAdminTenant();
+    if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
     const body = await request.json();
     const { venueId, reviewText, reviewRating }: { venueId: string; reviewText: string; reviewRating: number } = body;
@@ -32,13 +30,18 @@ export async function POST(request: Request) {
       );
     }
 
-    const venue = getVenueForTenant(ctx.tenantId, venueId);
+    let venue = getVenueForTenant(admin.tenantId, venueId);
+    if (!venue) {
+      const supabase = await createClient();
+      const venues = await getVenuesByTenantIdAsync(admin.tenantId, supabase ?? undefined);
+      venue = venues.find((v) => v.id === venueId) ?? null;
+    }
     if (!venue) {
       return NextResponse.json({ error: "Venue not found" }, { status: 404 });
     }
 
     const settings = getSettings(venueId);
-    const tone = settings.replyTone ?? "friendly";
+    const tone = settings?.replyTone ?? "friendly";
     const style = replyToneToStyle(tone) as ReplyStyle;
     const rating = typeof reviewRating === "number" ? Math.min(5, Math.max(1, reviewRating)) : 3;
 
@@ -53,7 +56,7 @@ export async function POST(request: Request) {
       reviewText: String(reviewText).slice(0, 2000),
       reviewRating: rating,
       style,
-      customInstructions: settings.replyInstructions,
+      customInstructions: settings?.replyInstructions,
     });
 
     const completion = await openai.chat.completions.create({

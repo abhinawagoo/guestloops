@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import type { VenueWithSettings } from "@/data/demo-venues";
-import { setStoredMobile, setStoredWhatsAppOptIn } from "@/lib/session-mobile";
+import { setStoredMobile, setStoredGuestName, setStoredWhatsAppOptIn } from "@/lib/session-mobile";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,8 +25,13 @@ function formatMobileDisplay(value: string): string {
   return `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`;
 }
 
+/**
+ * One QR: scan → enter name + mobile (and WhatsApp opt-in) → then choose Menu, Services, or Feedback.
+ * Name and mobile are used for rewards and for later feedback requests via WhatsApp.
+ */
 export function QRLanding({ venue }: QRLandingProps) {
   const { settings } = venue;
+  const [name, setName] = useState("");
   const [mobile, setMobile] = useState("");
   const [whatsappOptIn, setWhatsappOptIn] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -39,14 +44,20 @@ export function QRLanding({ venue }: QRLandingProps) {
   const feedbackCardSubtitle = settings.uiText.feedbackCardSubtitle ?? "Quick taps, no typing — we'll turn it into a Google review.";
   const rewardCta = settings.uiText.rewardCta ?? venue.rewardCta;
 
-  const handleMobileSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const trimmedName = name.trim();
     const digits = normalizeMobile(mobile);
+    if (!trimmedName) {
+      setError("Please enter your name");
+      return;
+    }
     if (digits.length < 10) {
       setError("Please enter a valid mobile number (at least 10 digits)");
       return;
     }
     setError("");
+    setStoredGuestName(venue.id, trimmedName);
     setStoredMobile(venue.id, digits);
     setStoredWhatsAppOptIn(venue.id, whatsappOptIn);
     setSubmitted(true);
@@ -73,13 +84,26 @@ export function QRLanding({ venue }: QRLandingProps) {
         >
           <Card className="rounded-2xl border border-border/80 bg-card shadow-sm">
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Enter your mobile number</CardTitle>
+              <CardTitle className="text-lg">Your name & mobile</CardTitle>
               <p className="text-sm text-muted-foreground">
-                Required — we use it only for your reward and occasional updates.
+                We use these for your reward and to reach you later (e.g. feedback via WhatsApp) if you opt in.
               </p>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleMobileSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="guest-name">Name</Label>
+                  <Input
+                    id="guest-name"
+                    type="text"
+                    autoComplete="name"
+                    placeholder="e.g. Rahul"
+                    value={name}
+                    onChange={(e) => setName(e.target.value.trimStart())}
+                    className="text-base"
+                    maxLength={100}
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="mobile">Mobile number</Label>
                   <Input

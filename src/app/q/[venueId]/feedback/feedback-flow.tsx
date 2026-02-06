@@ -3,7 +3,7 @@
 import { useState, useMemo, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { VenueWithSettings } from "@/data/demo-venues";
-import { getStoredMobile, getStoredWhatsAppOptIn } from "@/lib/session-mobile";
+import { getStoredMobile, getStoredGuestName, getStoredWhatsAppOptIn } from "@/lib/session-mobile";
 import type { FeedbackScores, GeneratedReview } from "@/types/venue";
 import type { VenueType } from "@/types/venue";
 import type { CustomQuestion } from "@/types/venue";
@@ -130,6 +130,7 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
     }) => {
       const optionalText = textAnswers["optionalText"] ?? "";
       const mobile = getStoredMobile(venue.id);
+      const guestName = getStoredGuestName(venue.id);
       const avg = averageAspectScore(scores);
       await fetch("/api/feedback/submit", {
         method: "POST",
@@ -138,6 +139,7 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
           venueId: venue.id,
           tenantId: venue.tenantId,
           mobile: mobile || undefined,
+          guestName: guestName || undefined,
           scores: { ...scores, overall: scores.overall ?? Math.round(avg) },
           textAnswers: Object.keys(textAnswers).length ? textAnswers : undefined,
           yesNoAnswers: Object.keys(yesNoAnswers).length ? yesNoAnswers : undefined,
@@ -383,7 +385,11 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
   );
 }
 
-/** Industry-standard flow: copy review to clipboard + open Google in new tab. User pastes, selects stars, submits. */
+/** Popup dimensions for Google review window (opens the review form in a focused window). */
+const REVIEW_POPUP_WIDTH = 600;
+const REVIEW_POPUP_HEIGHT = 720;
+
+/** Industry-standard flow: copy review to clipboard + open Google review in popup (or new tab). User pastes, selects stars, submits. */
 function GoogleReviewShareCard({
   reviewText,
   googleReviewUrl,
@@ -401,9 +407,19 @@ function GoogleReviewShareCard({
     try {
       await navigator.clipboard.writeText(reviewText);
       setCopied(true);
-      window.open(googleReviewUrl, "_blank", "noopener,noreferrer");
     } catch {
-      // Fallback: open Google so user can still paste manually if clipboard fails
+      // Continue to open Google even if copy fails
+    }
+    const features = [
+      "noopener",
+      "noreferrer",
+      `width=${REVIEW_POPUP_WIDTH}`,
+      `height=${REVIEW_POPUP_HEIGHT}`,
+      "scrollbars=yes",
+      "resizable=yes",
+    ].join(",");
+    const opened = window.open(googleReviewUrl, "google_review", features);
+    if (!opened) {
       window.open(googleReviewUrl, "_blank", "noopener,noreferrer");
     }
   }, [reviewText, googleReviewUrl]);
@@ -430,7 +446,9 @@ function GoogleReviewShareCard({
           {copied ? "Copied! Open Google →" : "Copy Review & Open Google"}
         </Button>
         <p className="text-xs text-center text-muted-foreground">
-          Your review is ready to paste. Select your star rating on Google and submit.
+          {googleReviewUrl.includes("writereview")
+            ? "Your review is ready to paste. Select your star rating and submit."
+            : "Your review is copied. Add your Google review link in admin Settings for a direct review form."}
         </p>
         <Button variant="ghost" onClick={onSkip} className="w-full">
           {claimRewardLabel}
