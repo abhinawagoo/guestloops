@@ -189,7 +189,7 @@ export function ReviewsPanel({ venueOptions }: { venueOptions: Venue[] }) {
           venueId,
           gbpAccountId: selectedAccountId,
           gbpLocationId: selectedLocationId,
-          gbpLocationName: loc?.title ?? linkLocationName || undefined,
+          gbpLocationName: (loc?.title ?? linkLocationName) || undefined,
         }),
       });
       setVenueLinkedToGbp(true);
