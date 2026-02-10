@@ -1,60 +1,13 @@
 import { NextResponse } from "next/server";
-import OpenAI from "openai";
 import { requireAdminTenant } from "@/lib/require-admin-tenant";
 import { getValidAccessTokenForTenant } from "@/lib/google-business";
 import { listReviews, gbpStarToNumber, type GBPReview } from "@/lib/google-business";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getVenuesByTenantIdAsync } from "@/lib/tenant-resolver";
 import { createClient } from "@/lib/supabase/server";
-import {
-  REVIEW_ANALYSIS_SYSTEM,
-  buildReviewAnalysisUserPrompt,
-} from "@/lib/prompts/review-analysis.prompt";
+import { analyzeContent } from "@/lib/growth-intelligence";
 
 export const dynamic = "force-dynamic";
-
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  : null;
-
-async function analyzeReview(text: string, starRating?: number): Promise<{
-  sentiment: "positive" | "neutral" | "negative";
-  topics: string[];
-  trendTags: string[];
-}> {
-  const fallback = { sentiment: "neutral" as const, topics: [] as string[], trendTags: [] as string[] };
-  if (!openai || !text.trim()) return fallback;
-  try {
-    const prompt = buildReviewAnalysisUserPrompt(text, starRating);
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: REVIEW_ANALYSIS_SYSTEM },
-        { role: "user", content: prompt },
-      ],
-      max_tokens: 200,
-      temperature: 0.2,
-    });
-    const raw = completion.choices[0]?.message?.content?.trim();
-    if (!raw) return fallback;
-    const parsed = JSON.parse(raw.replace(/^```json\s*|\s*```$/g, "")) as {
-      sentiment?: string;
-      topics?: string[];
-      trendTags?: string[];
-    };
-    const sentiment =
-      parsed.sentiment === "positive" || parsed.sentiment === "negative"
-        ? parsed.sentiment
-        : "neutral";
-    return {
-      sentiment,
-      topics: Array.isArray(parsed.topics) ? parsed.topics : [],
-      trendTags: Array.isArray(parsed.trendTags) ? parsed.trendTags : [],
-    };
-  } catch {
-    return fallback;
-  }
-}
 
 function mapGbpReviewToRow(
   r: GBPReview,
@@ -144,12 +97,21 @@ export async function POST(request: Request) {
     let sentiment: string | null = null;
     let topics: string[] = [];
     let trendTags: string[] = [];
+    let sentimentScore: number | null = null;
+    let emotionLabel: string | null = null;
+    let localSeoKeywords: string[] = [];
     const shouldAnalyze = !existing?.ai_analyzed_at || (existing?.gbp_updated_at !== row.gbp_updated_at);
     if (comment && shouldAnalyze) {
-      const analysis = await analyzeReview(comment, starRating);
+      const analysis = await analyzeContent(comment, {
+        starRating,
+        source: "review",
+      });
       sentiment = analysis.sentiment;
       topics = analysis.topics;
-      trendTags = analysis.trendTags;
+      trendTags = analysis.trend_tags;
+      sentimentScore = analysis.sentiment_score;
+      emotionLabel = analysis.emotion_label;
+      localSeoKeywords = analysis.local_seo_keywords;
       analyzed++;
     }
 
@@ -158,7 +120,10 @@ export async function POST(request: Request) {
         ...row,
         sentiment,
         topics: topics.length ? topics : [],
-        trend_tags: trendTags,
+        trend_tags: trendTags.length ? trendTags : [],
+        sentiment_score: sentimentScore,
+        emotion_label: emotionLabel,
+        local_seo_keywords: localSeoKeywords.length ? localSeoKeywords : [],
         ai_analyzed_at: sentiment ? now : (existing as { ai_analyzed_at: string } | null)?.ai_analyzed_at ?? null,
         updated_at: now,
       },

@@ -5,10 +5,19 @@ import {
   REVIEW_GENERATOR_SYSTEM,
   buildReviewGeneratorUserPrompt,
 } from "@/lib/prompts/review-generator.prompt";
+import { getRandomReviewStyle } from "@/lib/review-style";
+import {
+  scoreReviewQuality,
+  applySubtleTypo,
+  QUALITY_THRESHOLD,
+} from "@/lib/review-quality";
 
 const openai = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   : null;
+
+const REGENERATE_USER_APPEND =
+  "\n\nIMPORTANT: This draft must sound even more natural and less formulaic. Vary the opening and closing; avoid any template-like phrasing. Write like a real customer typing quickly.";
 
 export async function POST(request: Request) {
   try {
@@ -41,9 +50,14 @@ export async function POST(request: Request) {
 
     const overall = scores?.overall ?? 3;
     if (!openai) {
-      return NextResponse.json(
-        mockGenerate(scores, optionalText, textAnswers, yesNoAnswers, venueName)
+      const mock = mockGenerate(
+        scores,
+        optionalText,
+        textAnswers,
+        yesNoAnswers,
+        venueName
       );
+      return NextResponse.json(mock);
     }
 
     const scoresNum = {
@@ -54,29 +68,46 @@ export async function POST(request: Request) {
       ...(scores.roomQuality != null && { roomQuality: scores.roomQuality }),
       ...(scores.value != null && { value: scores.value }),
     };
-    const prompt = buildReviewGeneratorUserPrompt({
-      venueName,
-      venueType,
-      scores: scoresNum,
-      optionalText,
-      textAnswers,
-      yesNoAnswers,
-      recentOrderItems,
-    });
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: REVIEW_GENERATOR_SYSTEM },
-        { role: "user", content: prompt },
-      ],
-      max_tokens: 280,
-      temperature: 0.6,
-    });
+    const style = getRandomReviewStyle();
+    const basePrompt = buildReviewGeneratorUserPrompt(
+      {
+        venueName,
+        venueType,
+        scores: scoresNum,
+        optionalText,
+        textAnswers,
+        yesNoAnswers,
+        recentOrderItems,
+      },
+      style
+    );
 
-    const text =
-      completion.choices[0]?.message?.content?.trim() ||
-      mockGenerate(scores, optionalText, textAnswers, yesNoAnswers, venueName).review.text;
-    const suggestedRating = Math.min(5, Math.max(1, Math.round(overall)));
+    let text: string =
+      (await generateOne(openai, basePrompt))?.trim() ||
+      mockGenerate(scores, optionalText, textAnswers, yesNoAnswers, venueName)
+        .review.text;
+    let quality = scoreReviewQuality(text);
+
+    // Single optional regeneration if quality below threshold
+    if (quality < QUALITY_THRESHOLD) {
+      const retryText = (
+        await generateOne(openai, basePrompt + REGENERATE_USER_APPEND)
+      )?.trim();
+      if (retryText) {
+        const retryQuality = scoreReviewQuality(retryText);
+        if (retryQuality > quality) {
+          text = retryText;
+          quality = retryQuality;
+        }
+      }
+    }
+
+    // Quality gate: if still below threshold, use as-is (don't block; scoring is heuristic)
+    text = applySubtleTypo(text);
+    const suggestedRating = Math.min(
+      5,
+      Math.max(1, Math.round(overall))
+    );
 
     return NextResponse.json({
       review: { text, suggestedRating } as GeneratedReview,
@@ -88,6 +119,22 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+}
+
+async function generateOne(
+  openai: OpenAI,
+  userContent: string
+): Promise<string | null> {
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: REVIEW_GENERATOR_SYSTEM },
+      { role: "user", content: userContent },
+    ],
+    max_tokens: 280,
+    temperature: 0.7,
+  });
+  return completion.choices[0]?.message?.content ?? null;
 }
 
 function mockGenerate(

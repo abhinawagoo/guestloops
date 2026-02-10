@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { FeedbackScores } from "@/types/venue";
+import { sendTestNotificationIfConfigured } from "@/lib/whatsapp";
+import { runFeedbackAnalysis } from "@/lib/growth-intelligence";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -87,6 +89,18 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Failed to save feedback", details: error.message },
         { status: 500 }
+      );
+    }
+
+    // Testing: send WhatsApp to WHATSAPP_TEST_TO when set (e.g. +91 89339 16410)
+    sendTestNotificationIfConfigured().catch((e) =>
+      console.error("[feedback/submit] WhatsApp test notify:", e)
+    );
+
+    // AI Growth Intelligence: analyze feedback in background (fire-and-forget)
+    if (row?.id) {
+      runFeedbackAnalysis(row.id).catch((e) =>
+        console.error("[feedback/submit] Growth analysis:", e)
       );
     }
 

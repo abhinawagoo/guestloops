@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sendWhatsAppTemplate } from "@/lib/whatsapp";
 
 /**
  * Sends an automated WhatsApp message via Cloud API using an approved template.
@@ -6,19 +7,7 @@ import { NextResponse } from "next/server";
  * Requires: WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID.
  * Template must be approved in Meta Business Suite (e.g. hello_world or custom feedback_thank_you).
  */
-const WHATSAPP_API_VERSION = "v18.0";
-
 export async function POST(request: Request) {
-  const token = process.env.WHATSAPP_ACCESS_TOKEN;
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-
-  if (!token || !phoneNumberId) {
-    return NextResponse.json(
-      { sent: false, error: "WhatsApp not configured" },
-      { status: 503 }
-    );
-  }
-
   let body: { venueId: string; mobile: string; venueName?: string; templateName?: string };
   try {
     body = await request.json();
@@ -34,79 +23,19 @@ export async function POST(request: Request) {
     );
   }
 
-  const to = mobile.replace(/\D/g, "").slice(-15);
-  if (to.length < 10) {
-    return NextResponse.json(
-      { sent: false, error: "Invalid mobile number" },
-      { status: 400 }
-    );
+  const result = await sendWhatsAppTemplate(mobile, {
+    templateName,
+    languageCode: process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en_US",
+    venueName,
+  });
+
+  if (!result.sent) {
+    const status = result.error === "WhatsApp not configured" ? 503 : 502;
+    return NextResponse.json({ sent: false, error: result.error }, { status });
   }
 
-  const template = templateName || process.env.WHATSAPP_TEMPLATE_NAME || "hello_world";
-  const languageCode = process.env.WHATSAPP_TEMPLATE_LANGUAGE || "en";
-
-  let payload: {
-    messaging_product: string;
-    recipient_type: string;
-    to: string;
-    type: string;
-    template: {
-      name: string;
-      language: { code: string };
-      components?: { type: string; parameters: { type: string; text: string }[] }[];
-    };
-  } = {
-    messaging_product: "whatsapp",
-    recipient_type: "individual",
-    to,
-    type: "template",
-    template: {
-      name: template,
-      language: { code: languageCode },
-    },
-  };
-
-  if (venueName && template !== "hello_world") {
-    payload.template.components = [
-      {
-        type: "body",
-        parameters: [{ type: "text", text: venueName }],
-      },
-    ];
-  }
-
-  try {
-    const res = await fetch(
-      `https://graph.facebook.com/${WHATSAPP_API_VERSION}/${phoneNumberId}/messages`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      }
-    );
-
-    const data = await res.json().catch(() => ({}));
-
-    if (!res.ok) {
-      console.error("WhatsApp API error:", res.status, data);
-      return NextResponse.json(
-        { sent: false, error: data.error?.message || "WhatsApp send failed" },
-        { status: res.status >= 500 ? 502 : 400 }
-      );
-    }
-
-    return NextResponse.json({
-      sent: true,
-      messageId: data.messages?.[0]?.id,
-    });
-  } catch (e) {
-    console.error("WhatsApp send error:", e);
-    return NextResponse.json(
-      { sent: false, error: "Network error" },
-      { status: 502 }
-    );
-  }
+  return NextResponse.json({
+    sent: true,
+    messageId: result.messageId,
+  });
 }

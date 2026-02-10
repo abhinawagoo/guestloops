@@ -16,6 +16,8 @@ npm run dev
 - **Testing:** `.env.test` — optional; use for local tests or point Vercel Preview to a Test Supabase project.
 - **Production:** set in Vercel (Settings → Environment Variables), not in a file (Supabase Production project).
 
+**Branch workflow (test first, then production):** Use the **develop** branch and a **Testing** Supabase project for all new work and migrations. Only after testing, merge to **main** and run the same migrations on **Production**. See [docs/BRANCHES-AND-ENVIRONMENTS.md](docs/BRANCHES-AND-ENVIRONMENTS.md) for the full workflow.
+
 ---
 
 ## Get production working first

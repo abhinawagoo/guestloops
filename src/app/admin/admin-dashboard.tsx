@@ -34,6 +34,23 @@ type DashboardStats = {
   days: number;
 };
 
+type GrowthIntelligence = {
+  localGrowthScore: number;
+  breakdown: {
+    review_velocity_score: number;
+    avg_rating_score: number;
+    reply_rate_score: number;
+    sentiment_strength_score: number;
+    keyword_coverage_score: number;
+    trend_improvement_score: number;
+  };
+  strengths: string[];
+  weak_areas: string[];
+  ai_recommendations: string[];
+  seo_keyword_gaps: string[];
+  days: number;
+};
+
 function progressColor(score: number): "green" | "orange" | "red" {
   if (score >= 60) return "green";
   if (score >= 40) return "orange";
@@ -46,6 +63,8 @@ export function AdminDashboard() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loadingStats, setLoadingStats] = useState(true);
+  const [growth, setGrowth] = useState<GrowthIntelligence | null>(null);
+  const [loadingGrowth, setLoadingGrowth] = useState(true);
 
   useEffect(() => {
     fetch("/api/admin/submissions?limit=10")
@@ -70,6 +89,25 @@ export function AdminDashboard() {
       })
       .catch(() => setStats(null))
       .finally(() => setLoadingStats(false));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/admin/growth-intelligence?days=30")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error) return;
+        setGrowth({
+          localGrowthScore: data.localGrowthScore ?? 0,
+          breakdown: data.breakdown ?? {},
+          strengths: data.strengths ?? [],
+          weak_areas: data.weak_areas ?? [],
+          ai_recommendations: data.ai_recommendations ?? [],
+          seo_keyword_gaps: data.seo_keyword_gaps ?? [],
+          days: data.days ?? 30,
+        });
+      })
+      .catch(() => setGrowth(null))
+      .finally(() => setLoadingGrowth(false));
   }, []);
 
   return (
@@ -243,19 +281,86 @@ export function AdminDashboard() {
 
       <Card className="admin-card border bg-card">
         <CardHeader className="pb-4">
-          <CardTitle className="text-lg font-semibold">AI insights</CardTitle>
+          <CardTitle className="text-lg font-semibold">Growth Intelligence</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Plain English — no analytics noise
+            Local Growth Score and AI recommendations per business
           </p>
         </CardHeader>
-        <CardContent>
-          {stats && stats.totalSubmissions < 5 ? (
-            <p className="text-sm text-muted-foreground rounded-xl border border-border bg-muted/20 p-4">
-              We need more feedback to generate insights. Share your QR to collect more data.
-            </p>
+        <CardContent className="space-y-6">
+          {loadingGrowth ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : growth ? (
+            <>
+              <div className="flex flex-wrap items-baseline gap-4">
+                <div className="rounded-xl border border-border bg-muted/30 p-4 min-w-[120px] text-center">
+                  <p className="text-3xl font-bold">{growth.localGrowthScore}</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Local Growth Score</p>
+                </div>
+                <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
+                  {growth.breakdown && (
+                    <>
+                      <div><span className="text-muted-foreground">Velocity</span> {growth.breakdown.review_velocity_score ?? 0}%</div>
+                      <div><span className="text-muted-foreground">Rating</span> {growth.breakdown.avg_rating_score ?? 0}%</div>
+                      <div><span className="text-muted-foreground">Reply rate</span> {growth.breakdown.reply_rate_score ?? 0}%</div>
+                      <div><span className="text-muted-foreground">Sentiment</span> {growth.breakdown.sentiment_strength_score ?? 0}%</div>
+                      <div><span className="text-muted-foreground">Keywords</span> {growth.breakdown.keyword_coverage_score ?? 0}%</div>
+                      <div><span className="text-muted-foreground">Trend</span> {growth.breakdown.trend_improvement_score ?? 0}%</div>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {growth.strengths.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-2">Strengths</p>
+                    <ul className="text-sm space-y-1">
+                      {growth.strengths.map((s, i) => (
+                        <li key={i} className="flex gap-2">
+                          <span className="text-emerald-600 dark:text-emerald-400">+</span>
+                          {s}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {growth.weak_areas.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-2">Areas to improve</p>
+                    <ul className="text-sm space-y-1">
+                      {growth.weak_areas.map((w, i) => (
+                        <li key={i} className="flex gap-2">
+                          <span className="text-amber-600 dark:text-amber-400">•</span>
+                          {w}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+              {growth.ai_recommendations.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-2">AI recommendations</p>
+                  <ul className="text-sm space-y-2">
+                    {growth.ai_recommendations.map((r, i) => (
+                      <li key={i} className="rounded-lg bg-muted/30 px-3 py-2">{r}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {growth.seo_keyword_gaps.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-2">SEO keyword gaps</p>
+                  <ul className="text-sm space-y-1">
+                    {growth.seo_keyword_gaps.map((g, i) => (
+                      <li key={i} className="text-muted-foreground">→ {g}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
           ) : (
             <p className="text-sm text-muted-foreground rounded-xl border border-border bg-muted/20 p-4">
-              AI insights will appear here once we have enough feedback. Keep sharing your QR.
+              Connect Google Business Profile and collect feedback to see your Local Growth Score and recommendations.
             </p>
           )}
         </CardContent>
