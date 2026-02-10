@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 
 type State = "PENDING" | "COMPLETED" | "FAILED" | "loading" | "error";
 
-export default function PhonePeCallbackPage() {
+function PhonePeCallbackContent() {
   const searchParams = useSearchParams();
   const merchantOrderId = searchParams.get("merchantOrderId");
   const [state, setState] = useState<State>("loading");
@@ -108,5 +108,13 @@ export default function PhonePeCallbackPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function PhonePeCallbackPage() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-md px-4 py-12 text-center text-muted-foreground">Loading…</div>}>
+      <PhonePeCallbackContent />
+    </Suspense>
   );
 }
