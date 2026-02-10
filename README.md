@@ -85,6 +85,19 @@ Use **three separate Supabase projects** so production data stays isolated and y
 
 Never use the production Supabase project for local or testing.
 
+## PhonePe payments (multi-tenant)
+
+[PhonePe Standard Checkout](https://developer.phonepe.com/payment-gateway/website-integration/standard-checkout/api-integration/api-integration-website) is integrated so **each organization pays from their own dashboard** (tenant-scoped).
+
+1. **Get credentials** from [PhonePe Business Dashboard](https://business.phonepe.com/) → Developer Settings (Client ID, Client Version, Client Secret).
+2. **Set env vars** (or in Vercel → Settings → Environment Variables):
+   - `PHONEPE_CLIENT_ID`, `PHONEPE_CLIENT_SECRET`, `PHONEPE_CLIENT_VERSION` (optional, default `1.0`).
+   - **Production:** use production credentials and do **not** set `PHONEPE_SANDBOX`, or set `PHONEPE_SANDBOX=false`.
+   - **Sandbox:** set `PHONEPE_SANDBOX=true` for UAT only.
+3. **Tenant flow:** Each org signs in to their admin (e.g. `acme.yourapp.com/admin` or `yourapp.com/admin?tenant=acme`) → **Billing** → enter amount and click **Pay with PhonePe**. They are redirected to PhonePe and then back to the callback; success/failure is shown and they can return to their dashboard.
+4. **Super Admin** does not perform payments; it only shows an overview. All payments are initiated by tenants from **Admin → Billing**.
+5. **Webhook** (optional): configure `POST /api/payments/phonepe/webhook` in PhonePe dashboard for `checkout.order.completed` / `checkout.order.failed`.
+
 ## Database setup (Supabase)
 
 **Required for signup and feedback.** If you see errors like:

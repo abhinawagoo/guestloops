@@ -23,7 +23,7 @@ export default async function SuperAdminPaymentsPage() {
           Payments & plans
         </h1>
         <p className="mt-1.5 text-sm text-slate-400">
-          Signups, plans, and subscription status. Razorpay integration coming soon.
+          Signups, plans, and subscription status. Collect payments via PhonePe.
         </p>
       </div>
 
@@ -137,14 +137,28 @@ export default async function SuperAdminPaymentsPage() {
 
       <Card className="border-slate-800 bg-slate-900/50">
         <CardHeader>
+          <CardTitle className="text-lg text-white">Multi-tenant payments</CardTitle>
+          <p className="text-sm text-slate-400">
+            Each organization pays from their own dashboard. They sign in as that tenant and go to <strong>Admin → Billing</strong> to pay with PhonePe. This page is for platform overview only.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <p className="rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-4 text-sm text-slate-400">
+            To test: sign in as a tenant (e.g. via their subdomain or ?tenant=slug), open <strong>Billing</strong> in the admin nav, and use &quot;Pay with PhonePe&quot; there. For production, use production PhonePe credentials (do not set PHONEPE_SANDBOX or set it to false).
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card className="border-slate-800 bg-slate-900/50">
+        <CardHeader>
           <CardTitle className="text-lg text-white">Payment history</CardTitle>
           <p className="text-sm text-slate-400">
-            Razorpay subscription and one-time payments will appear here once integrated.
+            PhonePe webhook and payment records per tenant will appear here once configured.
           </p>
         </CardHeader>
         <CardContent>
           <p className="rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-6 text-center text-sm text-slate-500">
-            No payment records yet. Connect Razorpay in your environment to start collecting subscriptions.
+            No payment records yet.
           </p>
         </CardContent>
       </Card>
