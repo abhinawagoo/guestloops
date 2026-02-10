@@ -11,8 +11,8 @@ export interface Venue {
   createdAt?: string;
 }
 
-/** Question type: emoji (1-5), yesNo, or text. Manager can add/remove/reorder in Settings. */
-export type QuestionType = "emoji" | "yesNo" | "text";
+/** Question type: emoji (1-5), yesNo, text, or Google-style tag choice (single/multi). */
+export type QuestionType = "emoji" | "yesNo" | "text" | "singleChoice" | "multiChoice";
 
 /** For emoji-type questions: show as stars or sentiment faces (very dissatisfied → very satisfied). */
 export type RatingStyle = "star" | "emoji";
@@ -24,7 +24,7 @@ export interface CustomQuestion {
   id: string;
   title: string;
   type: QuestionType;
-  /** For emoji: overall, cleanliness, service, foodQuality, roomQuality, value. For text/yesNo: custom slug for AI. */
+  /** For emoji: overall, cleanliness, etc. For text/yesNo/choice: custom slug for AI & SEO. */
   key: QuestionKey;
   order: number;
   /** For type "emoji": display as "star" (1-5 stars) or "emoji" (sentiment icons). */
@@ -33,6 +33,12 @@ export interface CustomQuestion {
   placeholder?: string;
   /** Optional labels for yesNo: [ "Yes", "No" ] or custom */
   yesNoLabels?: [string, string];
+  /** For singleChoice / multiChoice: option labels (e.g. "Breakfast", "Brunch", "Lunch"). */
+  options?: string[];
+  /** For multiChoice: allow multiple selections (e.g. "What size group? Select all that apply"). */
+  multiSelect?: boolean;
+  /** Admin-only: describes which SEO keywords this question surfaces (e.g. "meal type, best for brunch"). */
+  seoHint?: string;
 }
 
 export interface VenueUIText {

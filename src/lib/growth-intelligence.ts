@@ -101,7 +101,15 @@ export function feedbackToAnalysisText(row: {
   if (row.optional_text?.trim()) parts.push(`Note: ${row.optional_text.trim()}`);
   const textAnswers = row.text_answers ?? {};
   for (const [k, v] of Object.entries(textAnswers)) {
-    if (v && typeof v === "string") parts.push(`${k}: ${v}`);
+    if (!v || typeof v !== "string") continue;
+    let display = v;
+    try {
+      const parsed = JSON.parse(v) as unknown;
+      if (Array.isArray(parsed)) display = (parsed as string[]).join(", ");
+    } catch {
+      // keep as-is
+    }
+    parts.push(`${k}: ${display}`);
   }
   return parts.join(" ") || "No text feedback.";
 }

@@ -17,11 +17,14 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { getGoogleStyleQuestionsForVenue } from "@/lib/question-templates";
 
 const QUESTION_TYPES: { value: QuestionType; label: string }[] = [
   { value: "emoji", label: "Rating (1–5)" },
   { value: "yesNo", label: "Yes / No" },
   { value: "text", label: "Text" },
+  { value: "singleChoice", label: "Single choice (tags)" },
+  { value: "multiChoice", label: "Multi choice (tags)" },
 ];
 const RATING_STYLES: { value: RatingStyle; label: string }[] = [
   { value: "star", label: "Stars" },
@@ -53,6 +56,10 @@ export function SettingsPanel({
   const [newQuestionRatingStyle, setNewQuestionRatingStyle] = useState<RatingStyle>("star");
   const [newQuestionTitle, setNewQuestionTitle] = useState("");
   const [newQuestionKey, setNewQuestionKey] = useState("overall");
+  const [newQuestionOptions, setNewQuestionOptions] = useState<string[]>([]);
+  const [newQuestionOptionInput, setNewQuestionOptionInput] = useState("");
+  const [newQuestionSeoHint, setNewQuestionSeoHint] = useState("");
+  const [newQuestionMultiSelect, setNewQuestionMultiSelect] = useState(false);
 
   useEffect(() => {
     if (!venueId) return;
@@ -422,7 +429,26 @@ export function SettingsPanel({
               </Button>
             </div>
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Your questions</Label>
+              <div className="flex flex-wrap items-center gap-2">
+                <Label className="text-sm font-medium">Your questions</Label>
+                <span className="text-xs text-muted-foreground">
+                  Add Google-style tag questions to get better SEO keywords (e.g. meal type, spend, group size).
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-lg"
+                  onClick={async () => {
+                    const venue = venues.find((v) => v.id === venueId);
+                    if (!venue || !settings) return;
+                    const template = getGoogleStyleQuestionsForVenue(venue.type, (settings.customQuestions?.length ?? 0));
+                    await save({ customQuestions: [...(settings.customQuestions ?? []), ...template] });
+                  }}
+                >
+                  + Add from template (Google-style for {venues.find((v) => v.id === venueId)?.type ?? "venue"})
+                </Button>
+              </div>
               <ul className="space-y-2 rounded-xl border border-border bg-muted/20 p-3">
                 {customQuestions.length === 0 ? (
                   <li className="text-sm text-muted-foreground py-4 text-center">
@@ -452,6 +478,11 @@ export function SettingsPanel({
                         <Badge variant="secondary" className="shrink-0 rounded-md text-xs capitalize">
                           {q.type}
                         </Badge>
+                        {(q.type === "singleChoice" || q.type === "multiChoice") && q.options?.length ? (
+                          <span className="text-xs text-muted-foreground shrink-0">
+                            {q.options.length} options{q.seoHint ? " · SEO" : ""}
+                          </span>
+                        ) : null}
                         {q.type === "emoji" && (
                           <select
                             value={q.ratingStyle ?? settings.defaultRatingStyle ?? "star"}
@@ -564,6 +595,76 @@ export function SettingsPanel({
                     ))}
                   </div>
                 )}
+                {(newQuestionType === "singleChoice" || newQuestionType === "multiChoice") && (
+                  <>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Label className="text-xs text-muted-foreground">Multi-select?</Label>
+                      <Button
+                        type="button"
+                        variant={newQuestionMultiSelect ? "secondary" : "ghost"}
+                        size="sm"
+                        className="rounded-lg"
+                        onClick={() => setNewQuestionMultiSelect(!newQuestionMultiSelect)}
+                      >
+                        {newQuestionMultiSelect ? "Yes (select all that apply)" : "No (single choice)"}
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Options (one per tag)</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {newQuestionOptions.map((opt, i) => (
+                          <Badge key={i} variant="secondary" className="rounded-lg gap-1 pr-1">
+                            {opt}
+                            <button
+                              type="button"
+                              className="ml-1 rounded hover:bg-muted"
+                              onClick={() => setNewQuestionOptions((o) => o.filter((_, j) => j !== i))}
+                            >
+                              ×
+                            </button>
+                          </Badge>
+                        ))}
+                        <div className="flex gap-1">
+                          <Input
+                            placeholder="Add option"
+                            value={newQuestionOptionInput}
+                            onChange={(e) => setNewQuestionOptionInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                if (newQuestionOptionInput.trim()) {
+                                  setNewQuestionOptions((o) => [...o, newQuestionOptionInput.trim()]);
+                                  setNewQuestionOptionInput("");
+                                }
+                              }
+                            }}
+                            className="h-8 w-32 rounded-lg border-input text-sm"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 rounded-lg"
+                            onClick={() => {
+                              if (newQuestionOptionInput.trim()) {
+                                setNewQuestionOptions((o) => [...o, newQuestionOptionInput.trim()]);
+                                setNewQuestionOptionInput("");
+                              }
+                            }}
+                          >
+                            Add
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                    <Input
+                      placeholder="SEO hint (admin only): e.g. Surfaces keywords: breakfast, brunch"
+                      value={newQuestionSeoHint}
+                      onChange={(e) => setNewQuestionSeoHint(e.target.value)}
+                      className="rounded-xl border-input text-sm"
+                    />
+                  </>
+                )}
                 <Input
                   placeholder="Question text"
                   value={newQuestionTitle}
@@ -571,7 +672,7 @@ export function SettingsPanel({
                   className="rounded-xl border-input"
                 />
                 <div className="flex flex-wrap items-center gap-2">
-                  <Label className="text-xs text-muted-foreground">Key (for AI):</Label>
+                  <Label className="text-xs text-muted-foreground">Key (for AI / SEO):</Label>
                   <select
                     value={newQuestionKey}
                     onChange={(e) => setNewQuestionKey(e.target.value)}
@@ -582,12 +683,18 @@ export function SettingsPanel({
                     ))}
                     <option value="what_liked">what_liked</option>
                     <option value="would_recommend">would_recommend</option>
+                    <option value="what_did_you_get">what_did_you_get</option>
+                    <option value="what_did_you_use">what_did_you_use</option>
+                    <option value="spend_per_person">spend_per_person</option>
+                    <option value="wait_time">wait_time</option>
+                    <option value="best_for">best_for</option>
                   </select>
                   <Button
                     size="sm"
                     className="rounded-lg"
                     onClick={() => {
                       if (!newQuestionTitle.trim()) return;
+                      if ((newQuestionType === "singleChoice" || newQuestionType === "multiChoice") && newQuestionOptions.length === 0) return;
                       const newQ: CustomQuestion = {
                         id: "q-" + Date.now(),
                         title: newQuestionTitle.trim(),
@@ -597,16 +704,21 @@ export function SettingsPanel({
                         ratingStyle: newQuestionType === "emoji" ? newQuestionRatingStyle : undefined,
                         placeholder: newQuestionType === "text" ? "Your answer..." : undefined,
                         yesNoLabels: newQuestionType === "yesNo" ? ["Yes", "No"] : undefined,
+                        options: (newQuestionType === "singleChoice" || newQuestionType === "multiChoice") ? newQuestionOptions : undefined,
+                        multiSelect: newQuestionType === "multiChoice" ? newQuestionMultiSelect : undefined,
+                        seoHint: newQuestionSeoHint.trim() || undefined,
                       };
                       save({ customQuestions: [...customQuestions, newQ] });
                       setNewQuestionTitle("");
                       setNewQuestionKey("overall");
+                      setNewQuestionOptions([]);
+                      setNewQuestionSeoHint("");
                       setAddingQuestion(false);
                     }}
                   >
                     Add
                   </Button>
-                  <Button variant="ghost" size="sm" className="rounded-lg" onClick={() => { setAddingQuestion(false); setNewQuestionTitle(""); }}>Cancel</Button>
+                  <Button variant="ghost" size="sm" className="rounded-lg" onClick={() => { setAddingQuestion(false); setNewQuestionTitle(""); setNewQuestionOptions([]); setNewQuestionSeoHint(""); }}>Cancel</Button>
                 </div>
               </Card>
             )}

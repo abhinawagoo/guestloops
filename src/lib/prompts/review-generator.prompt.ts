@@ -52,9 +52,17 @@ export function buildReviewGeneratorUserPrompt(
   if (scores.roomQuality != null) parts.push(`- Room quality: ${scores.roomQuality}`);
   if (scores.value != null) parts.push(`- Value: ${scores.value}`);
   if (textAnswers && Object.keys(textAnswers).length > 0) {
-    parts.push(``, `WHAT THEY WROTE (use in the review):`);
+    parts.push(``, `WHAT THEY WROTE / CHOSE (use in the review; choices like what_did_you_get, spend_per_person, best_for are great for local SEO — e.g. "We had brunch here", "Good for families"):`);
     Object.entries(textAnswers).forEach(([k, v]) => {
-      if (v && k !== "optionalText") parts.push(`- ${k}: "${v}"`);
+      if (!v || k === "optionalText") return;
+      let display = v;
+      try {
+        const parsed = JSON.parse(v) as unknown;
+        if (Array.isArray(parsed)) display = (parsed as string[]).join(", ");
+      } catch {
+        // keep as-is
+      }
+      parts.push(`- ${k}: "${display}"`);
     });
     if (textAnswers.optionalText) parts.push(`- Additional note: "${textAnswers.optionalText}"`);
   }

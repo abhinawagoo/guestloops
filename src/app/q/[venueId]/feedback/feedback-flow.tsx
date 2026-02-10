@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { EmojiRating } from "@/components/feedback/emoji-rating";
 import { YesNoChoice } from "@/components/feedback/yes-no-choice";
 import { TextQuestion } from "@/components/feedback/text-question";
+import { TagChoice } from "@/components/feedback/tag-choice";
 import { ThankYouLottie } from "@/components/feedback/thank-you-lottie";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -99,6 +100,18 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
     setYesNoAnswers((a) => ({ ...a, [currentStepConfig.key]: value }));
     advanceStep();
   }, [currentStepConfig, advanceStep]);
+
+  const handleSingleChoice = useCallback((value: string) => {
+    if (!currentStepConfig || currentStepConfig.type !== "singleChoice") return;
+    setTextAnswers((a) => ({ ...a, [currentStepConfig.key]: value }));
+    advanceStep();
+  }, [currentStepConfig, advanceStep]);
+
+  const handleMultiChoice = useCallback((value: string | string[]) => {
+    if (!currentStepConfig || currentStepConfig.type !== "multiChoice") return;
+    const arr = Array.isArray(value) ? value : [value];
+    setTextAnswers((a) => ({ ...a, [currentStepConfig.key]: JSON.stringify(arr) }));
+  }, [currentStepConfig]);
 
   const handleText = useCallback((value: string) => {
     if (!currentStepConfig) return;
@@ -231,6 +244,22 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
   const currentScore = currentScoreKey ? scores[currentScoreKey as keyof FeedbackScores] ?? null : null;
   const currentText = currentStepConfig?.type === "text" ? (textAnswers[currentStepConfig.key] ?? "") : "";
   const currentYesNo = currentStepConfig?.type === "yesNo" ? (yesNoAnswers[currentStepConfig.key] ?? null) : null;
+  const currentChoiceRaw = currentStepConfig?.type === "singleChoice" || currentStepConfig?.type === "multiChoice"
+    ? textAnswers[currentStepConfig.key]
+    : undefined;
+  const currentChoiceValue: string | string[] | null =
+    currentStepConfig?.type === "multiChoice" && currentChoiceRaw
+      ? (() => {
+          try {
+            const parsed = JSON.parse(currentChoiceRaw) as unknown;
+            return Array.isArray(parsed) ? (parsed as string[]) : [currentChoiceRaw];
+          } catch {
+            return currentChoiceRaw ? [currentChoiceRaw] : null;
+          }
+        })()
+      : currentStepConfig?.type === "singleChoice"
+        ? (currentChoiceRaw ?? null)
+        : null;
 
   return (
     <div className="font-sans">
@@ -271,6 +300,27 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
                     onChange={handleYesNo}
                     labels={currentStepConfig.yesNoLabels}
                   />
+                )}
+                {currentStepConfig.type === "singleChoice" && currentStepConfig.options && (
+                  <TagChoice
+                    options={currentStepConfig.options}
+                    value={currentChoiceValue as string | null}
+                    onChange={(v) => handleSingleChoice(typeof v === "string" ? v : v[0] ?? "")}
+                  />
+                )}
+                {currentStepConfig.type === "multiChoice" && currentStepConfig.options && (
+                  <>
+                    <TagChoice
+                      options={currentStepConfig.options}
+                      value={currentChoiceValue as string[] | null}
+                      multiSelect
+                      onChange={handleMultiChoice}
+                      subtitle="Select all that apply"
+                    />
+                    <Button onClick={handleNextFromText} size="lg" className="mt-2">
+                      {step === totalSteps - 1 ? "Continue to photo (optional) →" : "Continue →"}
+                    </Button>
+                  </>
                 )}
                 {currentStepConfig.type === "text" && (
                   <>
