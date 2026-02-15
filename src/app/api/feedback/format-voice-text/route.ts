@@ -35,10 +35,10 @@ export async function POST(request: Request) {
         },
         {
           role: "user",
-          content: raw.slice(0, 2000),
+          content: raw.slice(0, 4000),
         },
       ],
-      max_tokens: 500,
+      max_tokens: 1000,
       temperature: 0.2,
     });
     const formatted =

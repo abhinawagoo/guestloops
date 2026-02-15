@@ -44,9 +44,9 @@ export function getToneInstruction(tone: ToneVariant): string {
 
 export function getLengthInstruction(length: LengthVariant): string {
   const map: Record<LengthVariant, string> = {
-    short: "Write 2-3 sentences only. One opening line, one or two concrete points, one short close.",
-    medium: "Write 3-5 sentences. One opening, 2-3 points from their feedback, natural closing.",
-    long: "Write 4-6 sentences. Slightly more detail on what they liked. Vary sentence length.",
+    short: "Write 2-3 sentences only. One opening line, one or two concrete points, one short close. (If the customer gave a lot of text, still preserve their wording and allow more length.)",
+    medium: "Write 3-5 sentences. One opening, 2-3 points from their feedback, natural closing. (If the customer gave long or detailed text, include it fully — do not cut their sentences.)",
+    long: "Write 4-6+ sentences as needed. Preserve the customer's full wording when they wrote or said a lot; the review can be as long as their feedback deserves. Vary sentence length.",
   };
   return map[length];
 }

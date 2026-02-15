@@ -329,7 +329,7 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
                       onChange={handleText}
                       placeholder={currentStepConfig.placeholder}
                       multiline={currentStepConfig.key !== "optionalText" || true}
-                      maxLength={500}
+                      maxLength={2000}
                       showVoiceButton
                       enableFormatWithAI
                     />
@@ -441,7 +441,23 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
 const REVIEW_POPUP_WIDTH = 600;
 const REVIEW_POPUP_HEIGHT = 720;
 
-/** Industry-standard flow: copy review to clipboard + open Google review in popup (or new tab). User pastes, selects stars, submits. */
+/** Opens Google review in popup or new tab. */
+function openGoogleReview(googleReviewUrl: string) {
+  const features = [
+    "noopener",
+    "noreferrer",
+    `width=${REVIEW_POPUP_WIDTH}`,
+    `height=${REVIEW_POPUP_HEIGHT}`,
+    "scrollbars=yes",
+    "resizable=yes",
+  ].join(",");
+  const opened = window.open(googleReviewUrl, "google_review", features);
+  if (!opened) {
+    window.open(googleReviewUrl, "_blank", "noopener,noreferrer");
+  }
+}
+
+/** Copy + confirmation modal + toast; on continue, redirect to Google. */
 function GoogleReviewShareCard({
   reviewText,
   googleReviewUrl,
@@ -453,60 +469,100 @@ function GoogleReviewShareCard({
   onSkip: () => void;
   claimRewardLabel: string;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [showToast, setShowToast] = useState(false);
 
-  const handleCopyAndOpen = useCallback(async () => {
+  const handleContinueToGoogle = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(reviewText);
-      setCopied(true);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3500);
     } catch {
-      // Continue to open Google even if copy fails
+      // Still show modal so user can manually copy
     }
-    const features = [
-      "noopener",
-      "noreferrer",
-      `width=${REVIEW_POPUP_WIDTH}`,
-      `height=${REVIEW_POPUP_HEIGHT}`,
-      "scrollbars=yes",
-      "resizable=yes",
-    ].join(",");
-    const opened = window.open(googleReviewUrl, "google_review", features);
-    if (!opened) {
-      window.open(googleReviewUrl, "_blank", "noopener,noreferrer");
-    }
-  }, [reviewText, googleReviewUrl]);
+    setShowModal(true);
+  }, [reviewText]);
+
+  const handleModalContinue = useCallback(() => {
+    setShowModal(false);
+    openGoogleReview(googleReviewUrl);
+  }, [googleReviewUrl]);
 
   return (
-    <Card className="rounded-2xl border border-border/60 bg-card shadow-lg shadow-black/5">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-xl font-semibold tracking-tight">
-          Looks good? Share it on Google
-        </CardTitle>
-        <p className="text-sm text-muted-foreground mt-1">
-          One tap copies your review and opens Google. Then paste, pick your stars, and submit.
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-5 pb-8">
-        <div className="rounded-xl bg-muted/60 p-5 text-base leading-relaxed text-foreground">
-          {reviewText}
-        </div>
-        <Button
-          size="lg"
-          className="w-full"
-          onClick={handleCopyAndOpen}
+    <>
+      <Card className="rounded-2xl border border-border/60 bg-card shadow-lg shadow-black/5">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-xl font-semibold tracking-tight">
+            Looks good? Share it on Google
+          </CardTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            We&apos;ll copy your review and open Google. Then paste, pick your stars, and submit.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-5 pb-8">
+          <div className="rounded-xl bg-muted/60 p-5 text-base leading-relaxed text-foreground">
+            {reviewText}
+          </div>
+          <Button
+            size="lg"
+            className="w-full"
+            onClick={handleContinueToGoogle}
+          >
+            Continue to Google & Paste Review
+          </Button>
+          <p className="text-xs text-center text-muted-foreground">
+            {googleReviewUrl.includes("writereview")
+              ? "Your review is ready to paste. Select your star rating and submit."
+              : "Add your Google review link in admin Settings for a direct review form."}
+          </p>
+          <Button variant="ghost" onClick={onSkip} className="w-full">
+            {claimRewardLabel}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Toast: Review copied to clipboard */}
+      {showToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-foreground text-background text-sm font-medium shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-300"
         >
-          {copied ? "Copied! Open Google →" : "Copy Review & Open Google"}
-        </Button>
-        <p className="text-xs text-center text-muted-foreground">
-          {googleReviewUrl.includes("writereview")
-            ? "Your review is ready to paste. Select your star rating and submit."
-            : "Your review is copied. Add your Google review link in admin Settings for a direct review form."}
-        </p>
-        <Button variant="ghost" onClick={onSkip} className="w-full">
-          {claimRewardLabel}
-        </Button>
-      </CardContent>
-    </Card>
+          Review copied to clipboard
+        </div>
+      )}
+
+      {/* Confirmation modal before redirect */}
+      {showModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-in fade-in duration-200"
+          onClick={() => setShowModal(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="review-ready-title"
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-card border border-border shadow-xl p-6 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="review-ready-title" className="text-xl font-semibold text-foreground">
+              Your review is ready ✅
+            </h2>
+            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+              We&apos;ve copied your review to your clipboard. When Google opens, just tap and hold in the text box, press Paste, and then click Post.
+            </p>
+            <div className="mt-6 flex flex-col gap-2">
+              <Button size="lg" className="w-full" onClick={handleModalContinue}>
+                Continue
+              </Button>
+              <Button variant="ghost" size="sm" className="w-full" onClick={() => setShowModal(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

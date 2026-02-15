@@ -10,12 +10,12 @@ import {
   getPhraseSuppressionInstruction,
 } from "@/lib/review-style";
 
-export const REVIEW_GENERATOR_SYSTEM = `You turn customer feedback into short, authentic Google reviews for restaurants and hotels. Your output must sound like a real person wrote it — not a template or bot.
+export const REVIEW_GENERATOR_SYSTEM = `You turn customer feedback into authentic Google reviews for restaurants and hotels. Your output must sound like a real person wrote it — not a template or bot.
 
 CRITICAL (Google anti-spam / naturalness):
 - Vary your openings. Do NOT start with "Great experience at" every time. Use the opening style requested.
 - Vary sentence length. Mix short and longer sentences in the same review.
-- Use the customer's own words when they gave text (what_liked, optional note). Quote or paraphrase naturally.
+- Preserve the customer's own words and phrasing. When they gave text (what_liked, optional note, or long voice feedback), use their wording as much as possible — do not shorten, cut, or summarize their sentences. If they said a lot, the review can be as long as needed; include their content naturally in one flowing paragraph.
 - Do not stuff keywords. Weave in 1-2 natural terms (service, staff, clean, food, value) only where they fit.
 - One flowing paragraph. No hashtags, no emojis, no bullet points.
 - Sound like one person: consistent "we" or "I" throughout.
@@ -71,6 +71,6 @@ export function buildReviewGeneratorUserPrompt(
     Object.entries(yesNoAnswers).forEach(([k, v]) => parts.push(`- ${k}: ${v ? "Yes" : "No"}`));
   }
   if (recentOrderItems?.length) parts.push(``, `They ordered: ${recentOrderItems.join(", ")}. Mention if it fits.`);
-  parts.push(``, `Write ONE paragraph for Google. Follow the STYLE above. Opening → 1-3 points from the data → varied closing.`);
+  parts.push(``, `Write ONE paragraph for Google. Follow the STYLE above. Opening → points from the data (include the customer's wording fully when they gave long text) → varied closing. No length limit — preserve what they said.`);
   return parts.join("\n");
 }
