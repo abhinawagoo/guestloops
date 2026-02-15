@@ -12,42 +12,60 @@ const PG_BASE = SANDBOX
   : "https://api.phonepe.com/apis/pg";
 
 let cachedToken: { access_token: string; expires_at: number } | null = null;
+let lastAuthError: string | null = null;
 
 /** Get OAuth token (cached until expiry). Required: client_id, client_version, client_secret. */
 export async function getPhonePeAuthToken(): Promise<string | null> {
-  const clientId = process.env.PHONEPE_CLIENT_ID;
-  const clientVersion = process.env.PHONEPE_CLIENT_VERSION;
-  const clientSecret = process.env.PHONEPE_CLIENT_SECRET;
-  if (!clientId || !clientSecret) return null;
+  const clientId = process.env.PHONEPE_CLIENT_ID?.trim();
+  const clientVersion = (process.env.PHONEPE_CLIENT_VERSION?.trim() || "1.0").trim();
+  const clientSecret = process.env.PHONEPE_CLIENT_SECRET?.trim();
+  if (!clientId || !clientSecret) {
+    lastAuthError = "PHONEPE_CLIENT_ID and PHONEPE_CLIENT_SECRET are required in env.";
+    return null;
+  }
+  lastAuthError = null;
   const nowSec = Math.floor(Date.now() / 1000);
   if (cachedToken && cachedToken.expires_at > nowSec + 60) return cachedToken.access_token;
 
   const body = new URLSearchParams({
     client_id: clientId,
-    client_version: clientVersion ?? "1.0",
+    client_version: clientVersion,
     client_secret: clientSecret,
     grant_type: "client_credentials",
   });
 
-  const res = await fetch(`${AUTH_BASE}/v1/oauth/token`, {
+  const authUrl = `${AUTH_BASE}/v1/oauth/token`;
+  const res = await fetch(authUrl, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString(),
   });
+  const text = await res.text();
   if (!res.ok) {
-    const text = await res.text();
-    console.error("[phonepe] auth failed", res.status, text);
+    lastAuthError = `PhonePe auth failed (${res.status}). ${text.slice(0, 200)}`;
+    console.error("[phonepe]", lastAuthError, "URL:", authUrl, "Sandbox:", SANDBOX);
     return null;
   }
-  const data = (await res.json()) as {
-    access_token?: string;
-    expires_at?: number;
-    issued_at?: number;
-  };
+  let data: { access_token?: string; expires_at?: number; issued_at?: number; message?: string };
+  try {
+    data = JSON.parse(text) as typeof data;
+  } catch {
+    lastAuthError = "Invalid JSON in auth response.";
+    return null;
+  }
   const token = data.access_token ?? null;
+  if (!token) {
+    lastAuthError = data.message ?? "No access_token in response.";
+    return null;
+  }
   const expiresAt = data.expires_at ?? (data.issued_at ?? nowSec) + 86400;
-  if (token) cachedToken = { access_token: token, expires_at: expiresAt };
+  cachedToken = { access_token: token, expires_at: expiresAt };
   return token;
+}
+
+/** Last auth error message (for API to return to client). */
+export function getPhonePeLastAuthError(): string | null {
+  return lastAuthError;
 }
 
 export interface CreatePaymentParams {
@@ -70,7 +88,10 @@ export interface CreatePaymentResult {
 /** Create a payment order. Amount in paisa (min 100). redirectUrl = your callback URL. */
 export async function createPhonePePayment(params: CreatePaymentParams): Promise<CreatePaymentResult> {
   const token = await getPhonePeAuthToken();
-  if (!token) return { code: "AUTH_FAILED", message: "PhonePe auth failed" };
+  if (!token) {
+    const detail = getPhonePeLastAuthError();
+    return { code: "AUTH_FAILED", message: detail ?? "PhonePe auth failed" };
+  }
 
   const meta: Record<string, string> = {};
   if (params.metaInfo) {

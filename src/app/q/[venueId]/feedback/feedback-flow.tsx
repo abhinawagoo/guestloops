@@ -330,6 +330,8 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
                       placeholder={currentStepConfig.placeholder}
                       multiline={currentStepConfig.key !== "optionalText" || true}
                       maxLength={500}
+                      showVoiceButton
+                      enableFormatWithAI
                     />
                     <Button onClick={handleNextFromText} size="lg" className="mt-2">
                       {step === totalSteps - 1 ? "Continue to photo (optional) →" : "Continue →"}

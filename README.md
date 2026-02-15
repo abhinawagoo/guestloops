@@ -89,14 +89,41 @@ Never use the production Supabase project for local or testing.
 
 [PhonePe Standard Checkout](https://developer.phonepe.com/payment-gateway/website-integration/standard-checkout/api-integration/api-integration-website) is integrated so **each organization pays from their own dashboard** (tenant-scoped).
 
-1. **Get credentials** from [PhonePe Business Dashboard](https://business.phonepe.com/) → Developer Settings (Client ID, Client Version, Client Secret).
-2. **Set env vars** (or in Vercel → Settings → Environment Variables):
-   - `PHONEPE_CLIENT_ID`, `PHONEPE_CLIENT_SECRET`, `PHONEPE_CLIENT_VERSION` (optional, default `1.0`).
-   - **Production:** use production credentials and do **not** set `PHONEPE_SANDBOX`, or set `PHONEPE_SANDBOX=false`.
-   - **Sandbox:** set `PHONEPE_SANDBOX=true` for UAT only.
-3. **Tenant flow:** Each org signs in to their admin (e.g. `acme.yourapp.com/admin` or `yourapp.com/admin?tenant=acme`) → **Billing** → enter amount and click **Pay with PhonePe**. They are redirected to PhonePe and then back to the callback; success/failure is shown and they can return to their dashboard.
-4. **Super Admin** does not perform payments; it only shows an overview. All payments are initiated by tenants from **Admin → Billing**.
-5. **Webhook** (optional): configure `POST /api/payments/phonepe/webhook` in PhonePe dashboard for `checkout.order.completed` / `checkout.order.failed`.
+### 1. Credentials and env
+
+- Get **Client ID**, **Client Version**, **Client Secret** from [PhonePe Business Dashboard](https://business.phonepe.com/) → Developer Settings.
+- Set in env (or Vercel → Environment Variables):
+  - `PHONEPE_CLIENT_ID`, `PHONEPE_CLIENT_SECRET`, `PHONEPE_CLIENT_VERSION` (optional, default `1.0`).
+  - **Production:** use production credentials; do **not** set `PHONEPE_SANDBOX` or set `PHONEPE_SANDBOX=false`.
+  - **Sandbox:** set `PHONEPE_SANDBOX=true` for UAT.
+
+### 2. Create Payment and PayPage (redirect mode)
+
+- Tenant goes to **Admin → Billing** → enters amount → **Pay with PhonePe**.
+- Backend creates an order via PhonePe Create Payment API and returns a **redirectUrl** (the PayPage URL).
+- User is **redirected** to that URL to complete payment on PhonePe (UPI, cards, net banking). No iframe; redirect is the supported flow for server-side create.
+- After payment, PhonePe redirects the user to your **callback URL** (`/payments/phonepe/callback?merchantOrderId=...`).
+
+### 3. Verify payment (Step 4 in PhonePe docs)
+
+Two ways are supported:
+
+- **Webhook (recommended):** PhonePe sends server-to-server callbacks to your webhook URL when the payment state changes. Configure in PhonePe Dashboard → Developer Settings → Webhook:
+  - **Webhook URL:** `https://your-domain.com/api/payments/phonepe/webhook`
+  - **Username** and **Password:** choose credentials (5–20 chars username, 8–20 chars password with letters and numbers). Set the same in env as `PHONEPE_WEBHOOK_USERNAME` and `PHONEPE_WEBHOOK_PASSWORD`.
+  - **Events:** enable `checkout.order.completed`, `checkout.order.failed` (and optionally `pg.refund.completed`, `pg.refund.failed`).
+  - The app verifies the request using **SHA256(username:password)** in the `Authorization` header and persists events to the `phonepe_payments` table (idempotent by `merchant_order_id`). Use **payload.state** for payment status.
+- **Order Status API:** If the webhook is not received, the **callback page** calls the Order Status API to show success/failure and a “Back to Dashboard” link. So the user still sees the result even without webhook.
+
+### 4. Database (webhook persistence)
+
+Run migration `009_phonepe_payments.sql` so webhook events are stored (tenant_id from meta udf2, state, event, amount, etc.). This enables payment history and idempotent handling of duplicate webhooks.
+
+### 5. Summary
+
+- **Super Admin** does not perform payments; tenants pay from **Admin → Billing**.
+- **PayPage** is invoked in **redirect mode** (user sent to PhonePe, then back to your callback).
+- **Verification:** configure the **webhook** for real-time persistence; the **callback page** uses the **Order Status API** to show the user the result.
 
 ## Database setup (Supabase)
 

@@ -12,6 +12,8 @@ export interface Plan {
   maxVenues: number;
   /** Features list for display */
   features: string[];
+  /** Price in paisa (₹1 = 100). 0 or undefined = free, no payment. Used for one-click subscribe. */
+  pricePaisa?: number;
 }
 
 export const PLANS: Record<PlanSlug, Plan> = {
@@ -20,26 +22,35 @@ export const PLANS: Record<PlanSlug, Plan> = {
     name: "Free",
     maxVenues: 1,
     features: ["1 venue", "QR feedback flow", "AI review draft"],
+    pricePaisa: 0,
   },
   starter: {
     slug: "starter",
     name: "Starter",
     maxVenues: 3,
     features: ["Up to 3 venues", "WhatsApp opt-in", "Custom questions"],
+    pricePaisa: 49900, // ₹499/month – adjust as per your pricing
   },
   pro: {
     slug: "pro",
     name: "Pro",
     maxVenues: 10,
     features: ["Up to 10 venues", "AI insights", "Competitor benchmark"],
+    pricePaisa: 99900, // ₹999/month
   },
   enterprise: {
     slug: "enterprise",
     name: "Enterprise",
     maxVenues: 999,
     features: ["Unlimited venues", "Dedicated support", "Custom integrations"],
+    pricePaisa: 199900, // ₹1,999/month
   },
 };
+
+/** Plans that can be paid (one-click subscribe). */
+export const PAYABLE_PLANS = (Object.values(PLANS) as Plan[]).filter(
+  (p) => p.pricePaisa != null && p.pricePaisa >= 100
+);
 
 export type TenantStatus = "active" | "suspended" | "trial" | "cancelled";
 
