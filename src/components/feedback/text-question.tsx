@@ -20,14 +20,48 @@ interface TextQuestionProps {
   enableFormatWithAI?: boolean;
 }
 
+/** Web Speech API types (not in all TS libs). Avoids self-reference in Window declaration. */
+interface SpeechRecognitionResultItem {
+  transcript: string;
+  confidence: number;
+}
+interface SpeechRecognitionResult {
+  readonly length: number;
+  item(i: number): SpeechRecognitionResultItem;
+  [i: number]: SpeechRecognitionResultItem;
+  readonly isFinal: boolean;
+}
+interface SpeechRecognitionResultList {
+  readonly length: number;
+  item(i: number): SpeechRecognitionResult;
+  [i: number]: SpeechRecognitionResult;
+}
+interface SpeechRecognitionEvent extends Event {
+  readonly resultIndex: number;
+  readonly results: SpeechRecognitionResultList;
+}
+interface SpeechRecognitionInstance {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  onresult: ((e: SpeechRecognitionEvent) => void) | null;
+  onerror: ((e: Event) => void) | null;
+  onend: (() => void) | null;
+}
+interface SpeechRecognitionConstructor {
+  new (): SpeechRecognitionInstance;
+}
+
 declare global {
   interface Window {
-    SpeechRecognition?: typeof SpeechRecognition;
-    webkitSpeechRecognition?: typeof SpeechRecognition;
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
   }
 }
 
-const SpeechRecognition =
+const SpeechRecognition: SpeechRecognitionConstructor | undefined =
   typeof window !== "undefined"
     ? window.SpeechRecognition ?? window.webkitSpeechRecognition
     : undefined;
@@ -46,7 +80,7 @@ export function TextQuestion({
   const [isListening, setIsListening] = useState(false);
   const [formatting, setFormatting] = useState(false);
   const [voiceError, setVoiceError] = useState<string | null>(null);
-  const recognitionRef = useRef<InstanceType<NonNullable<typeof SpeechRecognition>> | null>(null);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const valueRef = useRef(value);
   valueRef.current = value;
 
