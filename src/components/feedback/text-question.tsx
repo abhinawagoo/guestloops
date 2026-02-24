@@ -81,8 +81,8 @@ export function TextQuestion({
   const [formatting, setFormatting] = useState(false);
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
-  const valueRef = useRef(value);
-  valueRef.current = value;
+  /** Value when this voice session started — so we append new speech to it (multiple sentences). */
+  const sessionStartValueRef = useRef("");
 
   const startListening = useCallback(() => {
     if (!SpeechRecognition) {
@@ -90,22 +90,29 @@ export function TextQuestion({
       return;
     }
     setVoiceError(null);
+    sessionStartValueRef.current = value.trim();
     const rec = new SpeechRecognition();
     rec.continuous = true;
     rec.interimResults = true;
     rec.lang = "en-IN";
     rec.onresult = (event: SpeechRecognitionEvent) => {
-      const parts: string[] = [];
+      // On mobile, results are often cumulative (each = full transcript so far). Use only the
+      // last final transcript in this event to avoid "I I visited I visited the..." duplication.
+      let lastFinalTranscript = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          parts.push(event.results[i][0].transcript);
+        const result = event.results[i];
+        const transcript = (result[0] && result[0].transcript) ? String(result[0].transcript).trim() : "";
+        if (result.isFinal && transcript) {
+          lastFinalTranscript = transcript;
+        } else if (transcript) {
+          lastFinalTranscript = transcript;
         }
       }
-      if (parts.length === 0) return;
-      const base = valueRef.current.trim();
-      const added = parts.join(" ").trim();
-      const next = base ? `${base} ${added}` : added;
-      if (next.length <= (maxLength ?? 500)) onChange(next);
+      if (!lastFinalTranscript) return;
+      const base = sessionStartValueRef.current;
+      const next = base ? `${base} ${lastFinalTranscript}` : lastFinalTranscript;
+      const limit = maxLength ?? 500;
+      if (next.length <= limit) onChange(next);
     };
     rec.onerror = () => setIsListening(false);
     rec.onend = () => setIsListening(false);
@@ -116,7 +123,7 @@ export function TextQuestion({
     } catch (e) {
       setVoiceError("Could not start microphone.");
     }
-  }, [onChange, maxLength]);
+  }, [value, onChange, maxLength]);
 
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {

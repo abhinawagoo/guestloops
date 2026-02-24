@@ -16,7 +16,7 @@ import { TagChoice } from "@/components/feedback/tag-choice";
 import { ThankYouLottie } from "@/components/feedback/thank-you-lottie";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-/** Ideal flow: emotion → aspect → aspect → positive text → yes/no → optional text → review (photo step removed) */
+/** Ideal flow: emotion → aspect → aspect → positive text → yes/no → optional text → image → review */
 const DEFAULT_STEPS: (Omit<CustomQuestion, "id"> & { id: string })[] = [
   { id: "service", title: "How did our service make you feel today?", type: "emoji", key: "service", order: 0 },
   { id: "cleanliness", title: "How was the cleanliness?", type: "emoji", key: "cleanliness", order: 1 },
@@ -65,20 +65,24 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
   }, [settings.customQuestions, venue.type]);
 
   const totalSteps = steps.length;
+  const imageStepIndex = totalSteps;
+  const totalWithImage = totalSteps + 1;
   const [step, setStep] = useState(0);
   const [scores, setScores] = useState<Partial<FeedbackScores>>({});
   const [textAnswers, setTextAnswers] = useState<Record<string, string>>({});
   const [yesNoAnswers, setYesNoAnswers] = useState<Record<string, boolean>>({});
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [review, setReview] = useState<GeneratedReview | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [done, setDone] = useState(false);
   const [outcome, setOutcome] = useState<FlowOutcome>(null);
 
-  const progress = totalSteps > 0 ? ((step + 1) / totalSteps) * 100 : 0;
+  const progress = totalWithImage > 0 ? ((step + 1) / totalWithImage) * 100 : 0;
   const currentStepConfig = step < totalSteps ? steps[step] : null;
+  const isImageStep = step === totalSteps && outcome === null;
   const microCopy = step < totalSteps
     ? (step === totalSteps - 1 ? "Last question!" : step === totalSteps - 2 ? "Almost there 🎉" : `Question ${step + 1} of ${totalSteps}`)
-    : "";
+    : "Add a photo (optional)";
 
   const advanceStep = useCallback(() => {
     setStep((s) => Math.min(s + 1, totalSteps));
@@ -153,13 +157,14 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
           textAnswers: Object.keys(textAnswers).length ? textAnswers : undefined,
           yesNoAnswers: Object.keys(yesNoAnswers).length ? yesNoAnswers : undefined,
           optionalText: optionalText || undefined,
+          imageUrls: imageUrls.length ? imageUrls : undefined,
           sessionId: typeof window !== "undefined" ? crypto.randomUUID?.() ?? undefined : undefined,
           generatedReviewText: payload.generatedReviewText,
           reviewOutcome: payload.reviewOutcome,
         }),
       }).catch(() => {});
     },
-    [scores, textAnswers, yesNoAnswers, venue]
+    [scores, textAnswers, yesNoAnswers, imageUrls, venue]
   );
 
   const submitForReview = useCallback(async () => {
@@ -191,6 +196,7 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
             textAnswers: Object.keys(textAnswers).length ? textAnswers : undefined,
             yesNoAnswers: Object.keys(yesNoAnswers).length ? yesNoAnswers : undefined,
             optionalText: optionalText || undefined,
+            imageUrls: imageUrls.length ? imageUrls : undefined,
             recentOrderItems: undefined,
           }),
         });
@@ -222,7 +228,11 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
     setDone(false);
     await saveSubmission({ reviewOutcome: "private" });
     if (mobile) sendWhatsAppIfOptedIn(mobile);
-  }, [scores, textAnswers, yesNoAnswers, venue, sendWhatsAppIfOptedIn, saveSubmission]);
+  }, [scores, textAnswers, yesNoAnswers, imageUrls, venue, sendWhatsAppIfOptedIn, saveSubmission]);
+
+  const handleContinueFromImage = useCallback(() => {
+    submitForReview();
+  }, [submitForReview]);
 
   const claimRewardLabel = settings.uiText.claimRewardLabel ?? "I'm done — claim my reward";
   const thanksTitle = settings.uiText.thanksTitle ?? "Thanks! 🎁";
@@ -307,12 +317,8 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
                       onChange={handleMultiChoice}
                       subtitle="Select all that apply"
                     />
-                    <Button
-                      onClick={step === totalSteps - 1 ? submitForReview : handleNextFromText}
-                      size="lg"
-                      className="mt-2"
-                    >
-                      Continue →
+                    <Button onClick={handleNextFromText} size="lg" className="mt-2">
+                      {step === totalSteps - 1 ? "Continue to photo (optional) →" : "Continue →"}
                     </Button>
                   </>
                 )}
@@ -327,12 +333,8 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
                       showVoiceButton
                       enableFormatWithAI
                     />
-                    <Button
-                      onClick={step === totalSteps - 1 ? submitForReview : handleNextFromText}
-                      size="lg"
-                      className="mt-2"
-                    >
-                      Continue →
+                    <Button onClick={handleNextFromText} size="lg" className="mt-2">
+                      {step === totalSteps - 1 ? "Continue to photo (optional) →" : "Continue →"}
                     </Button>
                   </>
                 )}
@@ -341,6 +343,37 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
                     ← Back
                   </Button>
                 )}
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {isImageStep && (
+          <motion.div
+            key="image"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex-1 flex flex-col"
+          >
+            <Card className="rounded-2xl border border-border/60 bg-card shadow-lg shadow-black/5">
+              <CardHeader className="pb-4 pt-6">
+                <CardTitle className="text-xl font-semibold tracking-tight">Add a photo (optional)</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">Photos improve trust and help your review stand out.</p>
+              </CardHeader>
+              <CardContent className="space-y-4 pb-8">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="block w-full text-sm text-muted-foreground file:mr-2 file:rounded-lg file:border-0 file:bg-primary file:px-4 file:py-2 file:text-primary-foreground file:font-medium"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) setImageUrls((prev) => [...prev, URL.createObjectURL(f)]);
+                  }}
+                />
+                <Button onClick={handleContinueFromImage} size="lg" className="w-full">
+                  Continue to review →
+                </Button>
+                <Button variant="ghost" onClick={() => setStep((s) => s - 1)}>← Back</Button>
               </CardContent>
             </Card>
           </motion.div>
