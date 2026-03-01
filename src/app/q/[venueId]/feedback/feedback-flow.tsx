@@ -153,6 +153,7 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
           tenantId: venue.tenantId,
           mobile: mobile || undefined,
           guestName: guestName || undefined,
+          whatsappOptIn: getStoredWhatsAppOptIn(venue.id),
           scores: { ...scores, overall: scores.overall ?? Math.round(avg) },
           textAnswers: Object.keys(textAnswers).length ? textAnswers : undefined,
           yesNoAnswers: Object.keys(yesNoAnswers).length ? yesNoAnswers : undefined,

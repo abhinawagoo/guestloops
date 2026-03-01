@@ -26,10 +26,9 @@ Do this once so your Vercel-hosted app can sign up users and save feedback.
 
 1. **Create one Supabase project** (or use an existing one) at [supabase.com/dashboard](https://supabase.com/dashboard). This will be your **production** database.
 
-2. **Run both migrations** in that project:
+2. **Run migrations** in that project:
    - Open the project → **SQL Editor** → New query.
-   - Copy **all** of `supabase/migrations/001_tenants_profiles_venues.sql` → paste → **Run**.
-   - New query again → copy **all** of `supabase/migrations/002_feedback_review_outcome.sql` → paste → **Run**.
+   - Run each migration in order: `001` through `011` (see [Database setup](#database-setup-supabase) for full list).
 
 3. **Set Vercel env vars** (Production):
    - Vercel → your project → **Settings** → **Environment Variables**.
@@ -71,7 +70,7 @@ Use **three separate Supabase projects** so production data stays isolated and y
 **Setup per environment:**
 
 1. **Create three projects** in [Supabase Dashboard](https://supabase.com/dashboard) (e.g. `guestloops-prod`, `guestloops-local`, `guestloops-test`).
-2. **Run migrations in each project:** SQL Editor → run `001_tenants_profiles_venues.sql`, then `002_feedback_review_outcome.sql` (see [Database setup](#database-setup-supabase) below).
+2. **Run migrations in each project:** SQL Editor → run migrations `001` through `011` in order (see [Database setup](#database-setup-supabase) below).
 3. **Wire env vars:**
    - **Local:** `cp .env.example .env.local` and paste the **Local** Supabase URL + anon key + service role key.
    - **Production:** Vercel → Project → Settings → Environment Variables. Add `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (and `OPENAI_API_KEY` etc.) for **Production**.
@@ -139,8 +138,21 @@ Your Supabase project doesn’t have the tables yet. Run the migrations on **the
 **Option A – Supabase Dashboard (recommended)**
 
 1. Open [Supabase Dashboard](https://supabase.com/dashboard) → select the project used by your app (or Vercel) → **SQL Editor**.
-2. Run **Migration 1:** open `supabase/migrations/001_tenants_profiles_venues.sql`, copy its **entire** contents, paste into a new query, and click **Run**. This creates `tenants`, `profiles`, `venues`, `venue_settings`, `feedback_submissions`, and RLS.
-3. Run **Migration 2:** open `supabase/migrations/002_feedback_review_outcome.sql`, copy its contents, paste into a new query, and click **Run**. This adds `generated_review_text` and `review_outcome` to `feedback_submissions`.
+2. Run each migration in order. For each file in `supabase/migrations/` (001 through 011), copy its **entire** contents, paste into a new query, and click **Run**.
+
+| Migration | Creates / Updates |
+|-----------|-------------------|
+| `001_tenants_profiles_venues.sql` | tenants, profiles, venues, venue_settings, feedback_submissions, RLS |
+| `002_feedback_review_outcome.sql` | generated_review_text, review_outcome on feedback_submissions |
+| `003_venue_settings_menu_service_categories.sql` | menu_categories, service_categories (JSONB) |
+| `004_venue_settings_google_review_default_rating.sql` | google_review_url, default_rating_style, reply_tone, reply_instructions |
+| `005_tenants_slug_lowercase_unique.sql` | Unique index on LOWER(slug) |
+| `006_feedback_submissions_guest_name.sql` | guest_name column |
+| `007_google_business_profile.sql` | google_oauth_tokens, venue_gbp_locations, google_reviews |
+| `008_growth_intelligence.sql` | local_growth_scores, AI analysis columns |
+| `009_phonepe_payments.sql` | phonepe_payments |
+| `010_whatsapp_accounts.sql` | whatsapp_accounts (per-tenant WhatsApp connection) |
+| `011_contacts.sql` | contacts (consent tracking) |
 
 **Option B – Supabase CLI**
 
@@ -149,7 +161,7 @@ npx supabase link --project-ref YOUR_PROJECT_REF   # if not linked
 npx supabase db push
 ```
 
-After running both migrations, **Signup**, **Reviews**, and **Recent feedback** will work (locally and on Vercel).
+After running migrations, **Signup**, **Reviews**, **Contacts**, **WhatsApp**, and **Recent feedback** will work (locally and on Vercel).
 
 ## Push to GitHub
 
@@ -185,6 +197,27 @@ The app exposes standard routes and metadata for search and AI:
 
 Set **`NEXT_PUBLIC_APP_URL`** (e.g. `https://guestloops.com`) in production so sitemap and Open Graph use the correct canonical URL.
 
+## WhatsApp (multi-tenant Meta Embedded Signup)
+
+Each tenant connects their own WhatsApp Business number via **Meta Embedded Signup**. Used for template messages, campaigns, and guest engagement.
+
+1. **Meta App:** Create an app at [developers.facebook.com](https://developers.facebook.com) → add **WhatsApp** product → configure **Embedded Signup** → get config ID.
+2. **Valid OAuth Redirect URIs:** Add your settings URL(s), e.g. `https://your-domain.com/admin/settings`, `http://localhost:3001/admin/settings`.
+3. **Env:** Set `NEXT_PUBLIC_META_APP_ID`, `NEXT_PUBLIC_META_WHATSAPP_CONFIG_ID`, `META_APP_SECRET`, `META_WHATSAPP_REDIRECT_URI` (see `.env.example`).
+4. **DB:** Run migration `010_whatsapp_accounts.sql`.
+5. **Admin:** Settings → WhatsApp → **Connect WhatsApp** → complete Meta signup (login, business, phone, OTP).
+
+See [docs/WHATSAPP-MODULES.md](docs/WHATSAPP-MODULES.md) for full module roadmap and implementation status.
+
+## Contact Management (consent tracking)
+
+Store customer contacts with consent status for WhatsApp messaging. Contacts are captured from feedback forms (with opt-in), added manually, or imported via CSV.
+
+1. **DB:** Run migration `011_contacts.sql`.
+2. **Admin:** Contacts → add, import CSV, search, filter by consent, opt-out.
+
+See [docs/WHATSAPP-MODULES.md](docs/WHATSAPP-MODULES.md) for API details.
+
 ## Google Business Profile (sync reviews & post replies)
 
 Optional integration to sync Google reviews and post AI-generated replies from the app.
@@ -216,7 +249,9 @@ Optional integration to sync Google reviews and post AI-generated replies from t
 
 - **AI Performance Dashboard** — Aspect scores (color: green/orange/red).
 - **AI Insights** — Plain English (e.g. “Customers love food but complain about slow service at 7–9 PM”).
-- **Review management** — View feedback submissions and generated reviews; **Generate AI reply** using venue tone/instructions (Settings → AI reply style); copy reply to post on Google. Connect Google Business Profile API later for live reviews and one-click reply.
+- **Review management** — View feedback submissions and generated reviews; **Generate AI reply** using venue tone/instructions (Settings → AI reply style); copy reply to post on Google. Connect Google Business Profile API for live reviews and one-click reply.
+- **Contacts** — Manage customer contacts with consent tracking; add manually, import CSV, auto-capture from feedback; opt-out support. Used for WhatsApp messaging.
+- **WhatsApp** — Settings → WhatsApp: connect your business number via Meta Embedded Signup. Each tenant connects their own number.
 - **Retention** — Phone + visit context for personalized offers and apology coupons.
 
 ## Multi-tenant and subdomains
@@ -245,6 +280,10 @@ The app is **multi-tenant**: each hotel or restaurant is a **tenant** with its o
 - **Admin context helper** (`src/lib/require-admin-tenant.ts`): `requireAdminTenant()` returns `{ tenant, user, tenantId, tenantSlug }` only when the authenticated user’s profile belongs to the requested tenant. Use in admin API routes and return 403 when null.
 - **RLS**: All tenant-scoped tables (venues, venue_settings, feedback_submissions) use Row Level Security so each request only sees data for the user’s tenant. No cross-tenant data leakage.
 - **Stateless request flow**: Middleware sets `x-tenant-slug` and `x-tenant-id` from query/cookie/subdomain; layout and APIs read from headers. No shared mutable state; safe for horizontal scaling.
+
+## WhatsApp engagement modules
+
+See [docs/WHATSAPP-MODULES.md](docs/WHATSAPP-MODULES.md) for the full roadmap: connection (✅), contacts (✅), manual send, templates, campaigns, AI automation, analytics, compliance.
 
 ## Tech stack
 

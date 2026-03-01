@@ -59,12 +59,11 @@ This document plans the features you asked for: **animations (LottieFiles)**, **
 
 ### What we’ll use
 - **WhatsApp Cloud API** (already in scope); **approved templates** for first message; **webhook** for incoming messages.
-- **Supabase:** Tables for `campaigns`, `campaign_sends`, `whatsapp_opt_ins` (or reuse existing consent fields).
+- **Supabase:** Tables for `whatsapp_accounts`, `contacts`, `campaigns`, `campaign_sends` (see [WHATSAPP-MODULES.md](WHATSAPP-MODULES.md)).
 - **Cron or Vercel Cron / Supabase Edge:** Schedule campaign sends; webhook handler for incoming WhatsApp.
 
 ### How
-- **Phase 1:** Keep current “send one template after feedback” (template ID from env or venue settings). Ensure opt-in and phone are stored.
-- **Phase 2:** Dashboard UI: list campaigns, create campaign (choose template, segment: all / by rating / by visit date / birthday this month), schedule → background job sends via WhatsApp Cloud API.
+- **Phase 1 (✅ Done):** Per-tenant WhatsApp connection via Meta Embedded Signup (`whatsapp_accounts`). Contact management with consent tracking (`contacts`). Auto-capture from feedback forms. See [WHATSAPP-MODULES.md](WHATSAPP-MODULES.md).Keep current “send one template after feedback”- **Phase 2:** Manual send to individual contacts; template management; campaign builder (choose template, segment, schedule).
 - **Phase 3:** Webhook for incoming WhatsApp → store message, call **AI reply agent** (see below) or match template → send reply.
 
 ### Delivered in plan only (implementation later)
@@ -127,7 +126,7 @@ This document plans the features you asked for: **animations (LottieFiles)**, **
 - **Birthday offers:** Store optional `birthday` (month/day) when we ask during feedback or in a later “profile” step; campaign segment “birthday this month” → send template with offer.
 
 ### What we’ll use
-- **Supabase:** `feedback_submissions` already has venue, scores, text, mobile. Add optional `birthday` (date), `guest_name` (optional). Or separate `guests` table (mobile, tenant_id, birthday, name, last_visit) for deduplication and segments.
+- **Supabase:** `contacts` table (✅ done) with consent_status, consent_source, last_interaction. `feedback_submissions` has venue, scores, text, mobile. Add optional `birthday` to contacts for Phase 2.
 - **Campaign engine:** Filter by segment → list of mobile numbers → send via WhatsApp with approved template.
 
 ### How
@@ -135,8 +134,6 @@ This document plans the features you asked for: **animations (LottieFiles)**, **
 - **Phase 2:** Optional “When’s your birthday?” in feedback or profile; store in guest/submission; campaign “Birthday this month” with template.
 - **Phase 3:** Dashboard: “Segments” (e.g. by rating, last visit, birthday), “Campaigns” (create, schedule, send).
 
-### Delivered in plan only
-- No code yet; schema and segments described here for when we build campaigns.
 
 ---
 

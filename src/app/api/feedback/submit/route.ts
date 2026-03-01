@@ -6,6 +6,10 @@ import { runFeedbackAnalysis } from "@/lib/growth-intelligence";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+function normalizePhone(phone: string): string {
+  return phone.replace(/\D/g, "").slice(-15);
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -14,6 +18,7 @@ export async function POST(request: Request) {
       tenantId,
       mobile,
       guestName,
+      whatsappOptIn,
       scores,
       textAnswers,
       yesNoAnswers,
@@ -27,6 +32,7 @@ export async function POST(request: Request) {
       tenantId: string;
       mobile?: string;
       guestName?: string;
+      whatsappOptIn?: boolean;
       scores: Partial<FeedbackScores>;
       textAnswers?: Record<string, string>;
       yesNoAnswers?: Record<string, boolean>;
@@ -36,6 +42,8 @@ export async function POST(request: Request) {
       generatedReviewText?: string;
       reviewOutcome?: "google_redirect" | "private";
     } = body;
+
+    const whatsappOptedIn = !!whatsappOptIn;
 
     if (!venueId || !tenantId) {
       return NextResponse.json(
@@ -90,6 +98,27 @@ export async function POST(request: Request) {
         { error: "Failed to save feedback", details: error.message },
         { status: 500 }
       );
+    }
+
+    // Auto-capture contact from feedback (consent tracking)
+    if (mobile && resolvedTenantId) {
+      const phone = normalizePhone(mobile);
+      if (phone.length >= 10) {
+        void (async () => {
+          const { error: err } = await supabase.from("contacts").upsert(
+            {
+              tenant_id: resolvedTenantId,
+              name: guestName?.trim() || null,
+              phone,
+              consent_status: whatsappOptedIn ? "opted_in" : "pending",
+              consent_source: "feedback_form",
+              last_interaction: new Date().toISOString(),
+            },
+            { onConflict: "tenant_id,phone" }
+          );
+          if (err) console.error("[feedback/submit] contact capture:", err);
+        })();
+      }
     }
 
     // Testing: send WhatsApp to WHATSAPP_TEST_TO when set (e.g. +91 89339 16410)

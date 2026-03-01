@@ -43,8 +43,9 @@ git pull origin develop   # if working with a team
 
 ### 3. Run migrations on Testing first
 
-- Apply new migration files (e.g. `008_growth_intelligence.sql`) in the **Testing** project:  
-  Supabase Dashboard → **Testing** project → SQL Editor → paste migration → Run.
+- Apply new migration files (e.g. `010_whatsapp_accounts.sql`, `011_contacts.sql`) in the **Testing** project:  
+  Supabase Dashboard → **Testing** project → SQL Editor → paste migration → Run.  
+  See [README.md](../README.md#database-setup-supabase) for the full migration list (001–011).
 - Test the app (local or Vercel Preview) against Testing. Confirm everything works.
 
 ### 4. Promote to production only after testing

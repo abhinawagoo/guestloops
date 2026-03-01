@@ -93,6 +93,12 @@ export default async function AdminLayout({
               Reviews
             </Link>
             <Link
+              href={"/admin/contacts" + adminQuery}
+              className="rounded-lg px-3.5 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-colors"
+            >
+              Contacts
+            </Link>
+            <Link
               href={"/admin/billing" + adminQuery}
               className="rounded-lg px-3.5 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-colors"
             >
