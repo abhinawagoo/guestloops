@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import Script from "next/script";
 
 type WhatsAppStatus = {
   connected: boolean;
@@ -16,21 +15,20 @@ type WhatsAppStatus = {
   } | null;
 };
 
-declare global {
-  interface Window {
-    FB?: {
-      init: (params: { appId: string; cookie: boolean; xfbml: boolean; version: string }) => void;
-      login: (
-        callback: (response: { authResponse?: { code?: string }; status?: string }) => void,
-        options: { config_id: string; response_type: string; override_default_response_type: boolean }
-      ) => void;
-    };
-    fbAsyncInit?: () => void;
-  }
-}
-
 const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID ?? "";
 const META_WHATSAPP_CONFIG_ID = process.env.NEXT_PUBLIC_META_WHATSAPP_CONFIG_ID ?? "";
+
+function RedirectUriHint() {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+  const callbackUrl = appUrl ? `${appUrl.replace(/\/$/, "")}/api/auth/whatsapp/callback` : "";
+  if (!callbackUrl) return null;
+  return (
+    <p className="text-xs text-muted-foreground">
+      Add this single URL to Meta App → Facebook Login for Business → Valid OAuth Redirect URIs (works for all tenants):{" "}
+      <code className="rounded bg-muted px-1 py-0.5 text-[10px] break-all">{callbackUrl}</code>
+    </p>
+  );
+}
 
 export function WhatsAppSettings() {
   const [status, setStatus] = useState<WhatsAppStatus | null>(null);
@@ -38,8 +36,6 @@ export function WhatsAppSettings() {
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [fbReady, setFbReady] = useState(false);
-  const connectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -58,17 +54,22 @@ export function WhatsAppSettings() {
     fetchStatus();
   }, [fetchStatus]);
 
+  // Handle redirect callback: ?whatsapp=connected or ?whatsapp=error
   useEffect(() => {
-    if (typeof window !== "undefined" && window.FB) {
-      window.FB.init({
-        appId: META_APP_ID,
-        cookie: true,
-        xfbml: false,
-        version: "v22.0",
-      });
-      setFbReady(true);
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const whatsapp = params.get("whatsapp");
+    const message = params.get("message");
+    const tenant = params.get("tenant");
+    const cleanUrl = window.location.pathname + (tenant ? `?tenant=${tenant}` : "");
+    if (whatsapp === "connected") {
+      fetchStatus();
+      window.history.replaceState({}, "", cleanUrl);
+    } else if (whatsapp === "error" && message) {
+      setError(decodeURIComponent(message));
+      window.history.replaceState({}, "", cleanUrl);
     }
-  }, []);
+  }, [fetchStatus]);
 
   const handleConnect = () => {
     if (!META_APP_ID || !META_WHATSAPP_CONFIG_ID) {
@@ -76,61 +77,10 @@ export function WhatsAppSettings() {
       return;
     }
 
-    if (!window.FB) {
-      setError("Facebook SDK is still loading. Please try again.");
-      return;
-    }
-
-    setConnecting(true);
-    setError(null);
-
-    // Timeout: if callback never fires (popup blocked, user closes, etc.), reset after 60s
-    connectTimeoutRef.current = setTimeout(() => {
-      setConnecting(false);
-      setError("Connection timed out. Check if a popup was blocked, or try again.");
-      connectTimeoutRef.current = null;
-    }, 60000);
-
-    window.FB.login(
-      (response) => {
-        if (connectTimeoutRef.current) {
-          clearTimeout(connectTimeoutRef.current);
-          connectTimeoutRef.current = null;
-        }
-
-        if (response.status !== "connected" || !response.authResponse?.code) {
-          const msg =
-            response.status === "unknown"
-              ? "Connection failed. Ensure your Meta App has WhatsApp Embedded Signup configured and Valid OAuth Redirect URIs include this page."
-              : "WhatsApp connection was cancelled or failed. Please try again.";
-          setError(msg);
-          setConnecting(false);
-          return;
-        }
-
-        const redirectUri = typeof window !== "undefined" ? window.location.origin + window.location.pathname : undefined;
-        fetch("/api/admin/whatsapp/connect", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code: response.authResponse.code, redirect_uri: redirectUri }),
-        })
-          .then((res) => res.json().then((data) => ({ res, data })))
-          .then(({ res, data }) => {
-            if (!res.ok) {
-              setError(data.error ?? "Failed to connect WhatsApp");
-              return;
-            }
-            return fetchStatus();
-          })
-          .catch((e) => setError((e as Error).message ?? "Failed to connect"))
-          .finally(() => setConnecting(false));
-      },
-      {
-        config_id: META_WHATSAPP_CONFIG_ID,
-        response_type: "code",
-        override_default_response_type: true,
-      }
-    );
+    // Redirect flow: one fixed callback URL works for ALL tenants. No need to add each ?tenant= URL to Meta.
+    const url = new URL("/api/auth/whatsapp/authorize", window.location.origin);
+    if (window.location.search) url.search = window.location.search;
+    window.location.href = url.toString();
   };
 
   const handleDisconnect = async () => {
@@ -162,23 +112,7 @@ export function WhatsAppSettings() {
   }
 
   return (
-    <>
-      <Script
-        src="https://connect.facebook.net/en_US/sdk.js"
-        strategy="lazyOnload"
-        onLoad={() => {
-          if (window.FB) {
-            window.FB.init({
-              appId: META_APP_ID,
-              cookie: true,
-              xfbml: false,
-              version: "v22.0",
-            });
-            setFbReady(true);
-          }
-        }}
-      />
-      <Card className="admin-card overflow-hidden border bg-card">
+    <Card className="admin-card overflow-hidden border bg-card">
         <CardHeader className="pb-4">
           <CardTitle className="text-lg font-semibold">WhatsApp</CardTitle>
           <CardDescription className="text-muted-foreground">
@@ -231,41 +165,22 @@ export function WhatsAppSettings() {
                 <Button
                   className="rounded-xl"
                   onClick={handleConnect}
-                  disabled={connecting || !META_APP_ID || !META_WHATSAPP_CONFIG_ID}
+                  disabled={!META_APP_ID || !META_WHATSAPP_CONFIG_ID}
                 >
-                  {connecting ? "Connecting…" : "Connect WhatsApp"}
+                  Connect WhatsApp
                 </Button>
-                {connecting && (
-                  <>
-                    <Button
-                      variant="outline"
-                      className="rounded-xl"
-                      onClick={() => {
-                        if (connectTimeoutRef.current) {
-                          clearTimeout(connectTimeoutRef.current);
-                          connectTimeoutRef.current = null;
-                        }
-                        setConnecting(false);
-                        setError(null);
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                    <p className="w-full text-xs text-muted-foreground mt-1">
-                      A Meta signup popup should open. If nothing appears, check for popup blockers or allow third-party cookies.
-                    </p>
-                  </>
-                )}
               </div>
               {(!META_APP_ID || !META_WHATSAPP_CONFIG_ID) && (
                 <p className="text-xs text-muted-foreground">
                   Configure NEXT_PUBLIC_META_APP_ID and NEXT_PUBLIC_META_WHATSAPP_CONFIG_ID in your Meta App to enable Embedded Signup.
                 </p>
               )}
+              {(META_APP_ID && META_WHATSAPP_CONFIG_ID) && (
+                <RedirectUriHint />
+              )}
             </div>
           )}
         </CardContent>
       </Card>
-    </>
   );
 }

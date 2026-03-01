@@ -35,9 +35,17 @@ GuestLoops is evolving into an **AI Guest Engagement Platform** for hotels and r
 ### UI
 - **Settings → WhatsApp** — Connect button, Embedded Signup flow, status display
 
+### Flow (redirect-based, multi-tenant)
+- User clicks Connect → redirects to `/api/auth/whatsapp/authorize?tenant=xxx`
+- Authorize redirects to Meta OAuth with fixed `redirect_uri` and `state=tenantId`
+- Meta redirects to `/api/auth/whatsapp/callback?code=xxx&state=tenantId`
+- Callback exchanges code, stores in `whatsapp_accounts`, redirects to settings
+
+**Single redirect URI:** Add only `https://guestloops.com/api/auth/whatsapp/callback` (and `http://localhost:3001/api/auth/whatsapp/callback` for dev) to Meta's Valid OAuth Redirect URIs. Works for all tenants.
+
 ### Env vars
 - `NEXT_PUBLIC_META_APP_ID`, `NEXT_PUBLIC_META_WHATSAPP_CONFIG_ID`
-- `META_APP_SECRET`, `META_WHATSAPP_REDIRECT_URI`
+- `META_APP_SECRET`, `NEXT_PUBLIC_APP_URL` (for callback URL)
 
 ---
 
