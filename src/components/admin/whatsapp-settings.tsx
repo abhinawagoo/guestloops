@@ -92,7 +92,7 @@ export function WhatsAppSettings() {
     }, 60000);
 
     window.FB.login(
-      async (response) => {
+      (response) => {
         if (connectTimeoutRef.current) {
           clearTimeout(connectTimeoutRef.current);
           connectTimeoutRef.current = null;
@@ -108,27 +108,22 @@ export function WhatsAppSettings() {
           return;
         }
 
-        try {
-          const redirectUri = typeof window !== "undefined" ? window.location.origin + window.location.pathname : undefined;
-          const res = await fetch("/api/admin/whatsapp/connect", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ code: response.authResponse.code, redirect_uri: redirectUri }),
-          });
-
-          const data = await res.json();
-
-          if (!res.ok) {
-            setError(data.error ?? "Failed to connect WhatsApp");
-            return;
-          }
-
-          await fetchStatus();
-        } catch (e) {
-          setError((e as Error).message ?? "Failed to connect");
-        } finally {
-          setConnecting(false);
-        }
+        const redirectUri = typeof window !== "undefined" ? window.location.origin + window.location.pathname : undefined;
+        fetch("/api/admin/whatsapp/connect", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: response.authResponse.code, redirect_uri: redirectUri }),
+        })
+          .then((res) => res.json().then((data) => ({ res, data })))
+          .then(({ res, data }) => {
+            if (!res.ok) {
+              setError(data.error ?? "Failed to connect WhatsApp");
+              return;
+            }
+            return fetchStatus();
+          })
+          .catch((e) => setError((e as Error).message ?? "Failed to connect"))
+          .finally(() => setConnecting(false));
       },
       {
         config_id: META_WHATSAPP_CONFIG_ID,
