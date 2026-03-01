@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { getGoogleStyleQuestionsForVenue } from "@/lib/question-templates";
+import { WhatsAppSettings } from "@/components/admin/whatsapp-settings";
 
 const QUESTION_TYPES: { value: QuestionType; label: string }[] = [
   { value: "emoji", label: "Rating (1–5)" },
@@ -256,6 +257,15 @@ export function SettingsPanel({
             {saving && <p className="text-xs text-muted-foreground">Saving…</p>}
           </CardContent>
         </Card>
+      </motion.div>
+
+      {/* WhatsApp integration */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.04 }}
+      >
+        <WhatsAppSettings />
       </motion.div>
 
       {/* UI text */}
