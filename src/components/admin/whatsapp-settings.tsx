@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +39,7 @@ export function WhatsAppSettings() {
   const [disconnecting, setDisconnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fbReady, setFbReady] = useState(false);
+  const connectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -83,10 +84,26 @@ export function WhatsAppSettings() {
     setConnecting(true);
     setError(null);
 
+    // Timeout: if callback never fires (popup blocked, user closes, etc.), reset after 60s
+    connectTimeoutRef.current = setTimeout(() => {
+      setConnecting(false);
+      setError("Connection timed out. Check if a popup was blocked, or try again.");
+      connectTimeoutRef.current = null;
+    }, 60000);
+
     window.FB.login(
       async (response) => {
+        if (connectTimeoutRef.current) {
+          clearTimeout(connectTimeoutRef.current);
+          connectTimeoutRef.current = null;
+        }
+
         if (response.status !== "connected" || !response.authResponse?.code) {
-          setError("WhatsApp connection was cancelled or failed. Please try again.");
+          const msg =
+            response.status === "unknown"
+              ? "Connection failed. Ensure your Meta App has WhatsApp Embedded Signup configured and Valid OAuth Redirect URIs include this page."
+              : "WhatsApp connection was cancelled or failed. Please try again.";
+          setError(msg);
           setConnecting(false);
           return;
         }
@@ -215,13 +232,36 @@ export function WhatsAppSettings() {
               <p className="text-sm text-muted-foreground">
                 Connect your WhatsApp Business number to send template messages, review requests, and offers to guests.
               </p>
-              <Button
-                className="rounded-xl"
-                onClick={handleConnect}
-                disabled={connecting || !META_APP_ID || !META_WHATSAPP_CONFIG_ID}
-              >
-                {connecting ? "Connecting…" : "Connect WhatsApp"}
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  className="rounded-xl"
+                  onClick={handleConnect}
+                  disabled={connecting || !META_APP_ID || !META_WHATSAPP_CONFIG_ID}
+                >
+                  {connecting ? "Connecting…" : "Connect WhatsApp"}
+                </Button>
+                {connecting && (
+                  <>
+                    <Button
+                      variant="outline"
+                      className="rounded-xl"
+                      onClick={() => {
+                        if (connectTimeoutRef.current) {
+                          clearTimeout(connectTimeoutRef.current);
+                          connectTimeoutRef.current = null;
+                        }
+                        setConnecting(false);
+                        setError(null);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <p className="w-full text-xs text-muted-foreground mt-1">
+                      A Meta signup popup should open. If nothing appears, check for popup blockers or allow third-party cookies.
+                    </p>
+                  </>
+                )}
+              </div>
               {(!META_APP_ID || !META_WHATSAPP_CONFIG_ID) && (
                 <p className="text-xs text-muted-foreground">
                   Configure NEXT_PUBLIC_META_APP_ID and NEXT_PUBLIC_META_WHATSAPP_CONFIG_ID in your Meta App to enable Embedded Signup.
