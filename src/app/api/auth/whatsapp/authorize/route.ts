@@ -35,6 +35,7 @@ export async function GET(request: Request) {
     state,
     response_type: "code",
     config_id: configId,
+    scope: "business_management,whatsapp_business_management,whatsapp_business_messaging",
   });
 
   const authUrl = `https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth?${params}`;

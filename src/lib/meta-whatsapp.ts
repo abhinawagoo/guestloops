@@ -65,6 +65,17 @@ export async function exchangeCodeForWhatsAppToken(
   }
 
   console.log("[meta-whatsapp] Token exchange success");
+
+  // Log token scopes via /debug_token (uses app token: app_id|app_secret)
+  const debugUrl = `${GRAPH_BASE}/debug_token?input_token=${encodeURIComponent(data.access_token)}&access_token=${encodeURIComponent(appId + "|" + appSecret)}`;
+  try {
+    const debugRes = await fetch(debugUrl);
+    const debugData = (await debugRes.json()) as { data?: { scopes?: string[]; type?: string; is_valid?: boolean } };
+    console.log("[meta-whatsapp] Token scopes:", debugData.data?.scopes ?? "unknown", "type:", debugData.data?.type);
+  } catch (e) {
+    console.warn("[meta-whatsapp] Could not fetch debug_token:", e);
+  }
+
   return { access_token: data.access_token };
 }
 
