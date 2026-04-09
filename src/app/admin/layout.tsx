@@ -99,6 +99,12 @@ export default async function AdminLayout({
               Contacts
             </Link>
             <Link
+              href={"/admin/whatsapp" + adminQuery}
+              className="rounded-lg px-3.5 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-colors"
+            >
+              WhatsApp
+            </Link>
+            <Link
               href={"/admin/billing" + adminQuery}
               className="rounded-lg px-3.5 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-colors"
             >

@@ -1,10 +1,191 @@
 /**
- * Meta WhatsApp Cloud API — Embedded Signup code exchange and WABA/phone fetch.
+ * Meta WhatsApp Cloud API — Embedded Signup, template management, and message sending.
  * Flow: code exchange → /me?fields=businesses → /{business-id}/owned_whatsapp_business_accounts → /{waba-id}/phone_numbers
  */
 
 const GRAPH_VERSION = "v22.0";
 const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_VERSION}`;
+
+// ─── Template Types ───────────────────────────────────────────────────────────
+
+export type TemplateCategory = "MARKETING" | "UTILITY" | "AUTHENTICATION";
+export type TemplateStatus =
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED"
+  | "PAUSED"
+  | "DISABLED"
+  | "IN_APPEAL"
+  | "PENDING_DELETION";
+
+export type TemplateHeaderFormat = "TEXT" | "IMAGE" | "VIDEO" | "DOCUMENT";
+export type ButtonType = "URL" | "QUICK_REPLY" | "PHONE_NUMBER" | "COPY_CODE" | "OPT_OUT";
+
+export type TemplateButton = {
+  type: ButtonType;
+  text: string;
+  url?: string;          // for URL buttons; supports {{1}} variable suffix
+  phone_number?: string; // for PHONE_NUMBER buttons (E.164)
+};
+
+export type TemplateComponent =
+  | { type: "HEADER"; format: TemplateHeaderFormat; text?: string }
+  | { type: "BODY"; text: string }
+  | { type: "FOOTER"; text: string }
+  | { type: "BUTTONS"; buttons: TemplateButton[] };
+
+export type MetaTemplate = {
+  id: string;
+  name: string;
+  category: TemplateCategory;
+  language: string;
+  status: TemplateStatus;
+  components: TemplateComponent[];
+  rejection_reason?: string;
+  created_time?: string;
+};
+
+export type CreateTemplateInput = {
+  name: string;
+  category: TemplateCategory;
+  language: string;
+  components: TemplateComponent[];
+};
+
+// ─── Send Message Types ───────────────────────────────────────────────────────
+
+export type SendMessageComponent = {
+  type: "header" | "body" | "button";
+  parameters: Array<{ type: "text"; text: string }>;
+  sub_type?: "url" | "quick_reply";
+  index?: number;
+};
+
+// ─── Template CRUD ────────────────────────────────────────────────────────────
+
+/**
+ * Create a new message template on the WABA.
+ * Returns the Meta template ID and initial status (usually PENDING).
+ */
+export async function createWhatsAppTemplate(
+  wabaId: string,
+  accessToken: string,
+  input: CreateTemplateInput
+): Promise<{ id: string; status: TemplateStatus }> {
+  const res = await fetch(`${GRAPH_BASE}/${wabaId}/message_templates`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+  const data = (await res.json().catch(() => ({}))) as {
+    id?: string;
+    status?: TemplateStatus;
+    error?: { message?: string; error_user_title?: string; error_user_msg?: string };
+  };
+  if (!res.ok || data.error) {
+    const msg = data.error?.error_user_msg ?? data.error?.message ?? `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return { id: data.id ?? "", status: data.status ?? "PENDING" };
+}
+
+/**
+ * List all templates for a WABA (syncs status from Meta).
+ */
+export async function listWhatsAppTemplates(
+  wabaId: string,
+  accessToken: string
+): Promise<MetaTemplate[]> {
+  const fields = "id,name,status,category,language,components,rejection_reason,created_time";
+  const res = await fetch(
+    `${GRAPH_BASE}/${wabaId}/message_templates?fields=${fields}&limit=100`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  const data = (await res.json().catch(() => ({}))) as {
+    data?: MetaTemplate[];
+    error?: { message?: string };
+  };
+  if (!res.ok || data.error) {
+    throw new Error(data.error?.message ?? `HTTP ${res.status}`);
+  }
+  return data.data ?? [];
+}
+
+/**
+ * Delete a template from the WABA by name.
+ * Deleting by name removes ALL language variants.
+ */
+export async function deleteWhatsAppTemplate(
+  wabaId: string,
+  accessToken: string,
+  templateName: string
+): Promise<void> {
+  const res = await fetch(`${GRAPH_BASE}/${wabaId}/message_templates`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name: templateName }),
+  });
+  const data = (await res.json().catch(() => ({}))) as {
+    success?: boolean;
+    error?: { message?: string };
+  };
+  if (!res.ok || data.error) {
+    throw new Error(data.error?.message ?? `HTTP ${res.status}`);
+  }
+}
+
+// ─── Send Template Message ────────────────────────────────────────────────────
+
+/**
+ * Send a template message with variable substitution.
+ * Components array maps variable values to header/body/button slots.
+ */
+export async function sendWhatsAppTemplateMessage(
+  phoneNumberId: string,
+  accessToken: string,
+  to: string,
+  templateName: string,
+  languageCode: string,
+  components?: SendMessageComponent[]
+): Promise<{ messageId: string }> {
+  const normalizedTo = to.replace(/\D/g, "").slice(-15);
+  if (normalizedTo.length < 10) throw new Error("Invalid phone number");
+
+  const payload = {
+    messaging_product: "whatsapp",
+    to: normalizedTo,
+    type: "template",
+    template: {
+      name: templateName,
+      language: { code: languageCode },
+      ...(components && components.length > 0 ? { components } : {}),
+    },
+  };
+
+  const res = await fetch(`${GRAPH_BASE}/${phoneNumberId}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const data = (await res.json().catch(() => ({}))) as {
+    messages?: { id: string }[];
+    error?: { message?: string; error_data?: { details?: string } };
+  };
+  if (!res.ok || data.error) {
+    const msg = data.error?.error_data?.details ?? data.error?.message ?? `HTTP ${res.status}`;
+    throw new Error(msg);
+  }
+  return { messageId: data.messages?.[0]?.id ?? "" };
+}
 
 export type WhatsAppAccountData = {
   waba_id: string;
