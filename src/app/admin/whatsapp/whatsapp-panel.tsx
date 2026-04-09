@@ -410,6 +410,8 @@ function TemplatesTab() {
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  const [migrationPending, setMigrationPending] = useState(false);
+
   const fetchTemplates = useCallback(async (sync = false) => {
     sync ? setSyncing(true) : setLoading(true);
     setError(null);
@@ -418,6 +420,7 @@ function TemplatesTab() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to load templates");
       setTemplates(data.templates ?? []);
+      setMigrationPending(data.migrationPending === true);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -447,6 +450,12 @@ function TemplatesTab() {
 
   return (
     <div className="space-y-4">
+      {migrationPending && (
+        <div className="rounded-xl border border-yellow-500/40 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-700">
+          <strong>Setup required:</strong> Run migration <code className="rounded bg-yellow-500/20 px-1">012_whatsapp_templates.sql</code> in your Supabase SQL Editor to enable template management.
+        </div>
+      )}
+
       {error && (
         <div className="rounded-xl border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error}

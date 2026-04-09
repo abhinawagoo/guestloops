@@ -65,7 +65,13 @@ export async function GET(request: Request) {
     .eq("tenant_id", ctx.tenantId)
     .order("created_at", { ascending: false });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // Table may not exist yet (migration pending) — return empty list gracefully
+  if (error) {
+    if (error.code === "42P01") {
+      return NextResponse.json({ templates: [], migrationPending: true });
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   return NextResponse.json({ templates: templates ?? [] });
 }

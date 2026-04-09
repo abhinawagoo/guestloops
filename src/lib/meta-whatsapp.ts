@@ -246,104 +246,105 @@ export async function exchangeCodeForWhatsAppToken(
   }
 
   console.log("[meta-whatsapp] Token exchange success");
-
-  // Log token scopes via /debug_token (uses app token: app_id|app_secret)
-  const debugUrl = `${GRAPH_BASE}/debug_token?input_token=${encodeURIComponent(data.access_token)}&access_token=${encodeURIComponent(appId + "|" + appSecret)}`;
-  try {
-    const debugRes = await fetch(debugUrl);
-    const debugData = (await debugRes.json()) as { data?: { scopes?: string[]; type?: string; is_valid?: boolean } };
-    console.log("[meta-whatsapp] Token scopes:", debugData.data?.scopes ?? "unknown", "type:", debugData.data?.type);
-  } catch (e) {
-    console.warn("[meta-whatsapp] Could not fetch debug_token:", e);
-  }
-
   return { access_token: data.access_token };
 }
 
 // --- Fetch WABA and Phone via businesses → owned_whatsapp_business_accounts → phone_numbers ---
 
-async function graphGet<T>(path: string, accessToken: string): Promise<T> {
-  const url = `${GRAPH_BASE}/${path.replace(/^\//, "")}`;
-  const res = await fetch(url, {
-    method: "GET",
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  return res.json() as Promise<T>;
-}
 
+/**
+ * Extract WABA ID and Phone Number ID from the Embedded Signup token using
+ * granular_scopes from debug_token. This is the correct approach for Embedded
+ * Signup tokens — no business_management permission required.
+ *
+ * Meta grants:
+ *   whatsapp_business_management → target_ids = [wabaId]
+ *   whatsapp_business_messaging  → target_ids = [phoneNumberId]
+ */
 export async function fetchWabaAndPhone(accessToken: string): Promise<WhatsAppAccountData | null> {
   if (!accessToken || accessToken === "undefined") {
     console.error("[meta-whatsapp] fetchWabaAndPhone: access_token is missing or undefined");
     return null;
   }
-  console.log("[meta-whatsapp] fetchWabaAndPhone: token present, length:", accessToken.length);
 
-  // Step 1: /me?fields=businesses
-  const meData = await graphGet<{
-    businesses?: { data?: Array<{ id: string; name?: string }> };
-    error?: { message?: string; code?: number };
-  }>("me?fields=businesses", accessToken);
-
-  if (meData.error) {
-    console.error("[meta-whatsapp] Business fetch error:", meData.error);
-    throw new Error(meData.error.message ?? "Could not fetch businesses");
+  const appId = process.env.META_APP_ID ?? process.env.NEXT_PUBLIC_META_APP_ID;
+  const appSecret = process.env.META_APP_SECRET;
+  if (!appId || !appSecret) {
+    throw new Error("META_APP_ID and META_APP_SECRET must be set");
   }
 
-  const businesses = meData.businesses?.data ?? [];
-  if (businesses.length === 0) {
-    console.error("[meta-whatsapp] No businesses returned", { meData });
-    throw new Error("No businesses found for this user");
-  }
-  console.log("[meta-whatsapp] Business fetch success:", businesses.length, "business(es)");
+  const appToken = `${appId}|${appSecret}`;
 
-  // Step 2: /{business-id}/owned_whatsapp_business_accounts
-  let firstWaba: { id: string; name?: string } | null = null;
-  for (const biz of businesses) {
-    const wabaRes = await graphGet<{
-      data?: Array<{ id: string; name?: string }>;
-      error?: { message?: string; code?: number };
-    }>(`${biz.id}/owned_whatsapp_business_accounts`, accessToken);
+  // Use debug_token with granular_scopes — Embedded Signup tokens carry
+  // the exact WABA ID and Phone Number ID the user selected.
+  const debugUrl = `${GRAPH_BASE}/debug_token?input_token=${encodeURIComponent(accessToken)}&access_token=${encodeURIComponent(appToken)}&fields=granular_scopes,scopes,is_valid,expires_at`;
 
-    if (wabaRes.error) {
-      console.warn("[meta-whatsapp] WABA fetch for business", biz.id, "error:", wabaRes.error);
-      continue;
-    }
-    const wabas = wabaRes.data ?? [];
-    if (wabas.length > 0) {
-      firstWaba = wabas[0];
-      console.log("[meta-whatsapp] WABA fetch success:", firstWaba.id);
-      break;
-    }
+  const debugRes = await fetch(debugUrl);
+  const debugData = (await debugRes.json()) as {
+    data?: {
+      is_valid?: boolean;
+      scopes?: string[];
+      granular_scopes?: Array<{ scope: string; target_ids?: string[] }>;
+      expires_at?: number;
+    };
+    error?: { message?: string };
+  };
+
+  if (debugData.error) {
+    console.error("[meta-whatsapp] debug_token error:", debugData.error);
+    throw new Error(debugData.error.message ?? "Token validation failed");
   }
 
-  if (!firstWaba) {
-    console.error("[meta-whatsapp] No WABA found in any business");
-    throw new Error("No WhatsApp Business Account found. Ensure the business has completed WhatsApp setup.");
+  const { granular_scopes = [], scopes = [], is_valid } = debugData.data ?? {};
+  console.log("[meta-whatsapp] granular_scopes:", JSON.stringify(granular_scopes));
+  console.log("[meta-whatsapp] scopes:", scopes, "is_valid:", is_valid);
+
+  // Extract WABA ID from whatsapp_business_management scope
+  const wabaScope = granular_scopes.find((s) => s.scope === "whatsapp_business_management");
+  const wabaId = wabaScope?.target_ids?.[0];
+
+  // Extract Phone Number ID from whatsapp_business_messaging scope
+  const phoneScope = granular_scopes.find((s) => s.scope === "whatsapp_business_messaging");
+  const phoneNumberId = phoneScope?.target_ids?.[0];
+
+  if (!wabaId) {
+    console.error("[meta-whatsapp] No WABA ID in granular_scopes:", granular_scopes);
+    throw new Error(
+      "No WhatsApp Business Account found in token. Make sure the Facebook Login for Business config includes whatsapp_business_management permission and the user completed the Embedded Signup flow."
+    );
+  }
+  if (!phoneNumberId) {
+    console.error("[meta-whatsapp] No Phone Number ID in granular_scopes:", granular_scopes);
+    throw new Error(
+      "No phone number found in token. Make sure the user added a phone number during the Embedded Signup flow."
+    );
   }
 
-  // Step 3: /{waba-id}/phone_numbers
-  const phoneRes = await graphGet<{
-    data?: Array<{ id: string; verified_name?: string; display_phone_number?: string }>;
-    error?: { message?: string; code?: number };
-  }>(`${firstWaba.id}/phone_numbers`, accessToken);
+  console.log("[meta-whatsapp] Got WABA ID:", wabaId, "Phone Number ID:", phoneNumberId);
 
-  if (phoneRes.error) {
-    console.error("[meta-whatsapp] Phone number fetch error:", phoneRes.error);
-    throw new Error(phoneRes.error.message ?? "Could not fetch phone numbers");
+  // Fetch display name from the phone number object
+  const phoneRes = await fetch(
+    `${GRAPH_BASE}/${phoneNumberId}?fields=verified_name,display_phone_number`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  const phoneData = (await phoneRes.json().catch(() => ({}))) as {
+    verified_name?: string;
+    display_phone_number?: string;
+    error?: { message?: string };
+  };
+
+  if (phoneData.error) {
+    console.warn("[meta-whatsapp] Could not fetch phone display name:", phoneData.error.message);
   }
 
-  const phones = phoneRes.data ?? [];
-  const firstPhone = phones[0];
-  if (!firstPhone) {
-    console.error("[meta-whatsapp] No phone numbers for WABA", firstWaba.id);
-    throw new Error("No phone number found for this WhatsApp Business Account");
-  }
-  console.log("[meta-whatsapp] Phone number fetch success:", firstPhone.id);
+  const displayName =
+    phoneData.verified_name ?? phoneData.display_phone_number ?? "WhatsApp Business";
+  console.log("[meta-whatsapp] Display name:", displayName);
 
   return {
-    waba_id: firstWaba.id,
-    phone_number_id: firstPhone.id,
-    display_name: firstPhone.verified_name ?? firstWaba.name ?? firstPhone.display_phone_number ?? "WhatsApp",
+    waba_id: wabaId,
+    phone_number_id: phoneNumberId,
+    display_name: displayName,
     access_token: accessToken,
   };
 }
