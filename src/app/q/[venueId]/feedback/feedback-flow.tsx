@@ -349,7 +349,7 @@ export function FeedbackFlow({ venue }: FeedbackFlowProps) {
           </motion.div>
         )}
 
-        {isImageStep && (
+        {false && (
           <motion.div
             key="image"
             initial={{ opacity: 0 }}
