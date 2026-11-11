@@ -573,16 +573,16 @@ function mockReview(
   yesNoAnswers: Record<string, boolean>,
   venue: VenueWithSettings
 ): GeneratedReview {
-  const o = scores.overall ?? 3;
+  // const o = scores.overall ?? 3;
   const parts: string[] = [];
-  if (o >= 4) parts.push(`Great experience at ${venue.name}.`);
-  else if (o <= 2) parts.push(`Visited ${venue.name}.`);
-  else parts.push(`Good experience at ${venue.name}.`);
-  if (scores.service !== undefined && scores.service >= 4) parts.push("Service was friendly and prompt.");
-  if (scores.cleanliness !== undefined && scores.cleanliness >= 4) parts.push("Everything was clean.");
-  if (textAnswers.what_liked) parts.push(`Really liked ${textAnswers.what_liked}.`);
+  // if (o >= 4) parts.push(`Great experience at ${venue.name}.`);
+  // else if (o <= 2) parts.push(`Visited ${venue.name}.`);
+  // else parts.push(`Good experience at ${venue.name}.`);
+  // if (scores.service !== undefined && scores.service >= 4) parts.push("Service was friendly and prompt.");
+  // if (scores.cleanliness !== undefined && scores.cleanliness >= 4) parts.push("Everything was clean.");
+  // if (textAnswers.what_liked) parts.push(`Really liked ${textAnswers.what_liked}.`);
   if (textAnswers.optionalText) parts.push(textAnswers.optionalText);
-  if (yesNoAnswers.would_recommend) parts.push("Would definitely recommend.");
+  // if (yesNoAnswers.would_recommend) parts.push("Would definitely recommend.");
   const text = parts.length > 0 ? parts.join(" ") : `Good experience at ${venue.name}. Would recommend.`;
   return { text, suggestedRating: o };
 }
